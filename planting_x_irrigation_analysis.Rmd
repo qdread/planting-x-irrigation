@@ -124,12 +124,15 @@ cld_audpc[, cols_to_transform] <- expm1(cld_audpc[, cols_to_transform])
 ```
 
 ```{r}
+facet_irr <- facet_wrap(~ Irr, labeller = as_labeller(c('Irr' = 'irrigated', 'Nonirr' = 'not irrigated')))
+xaxis_pd <- scale_x_discrete(name = 'Planting Date', labels = c('April','May','June'))
+
 ggplot(cld_yld, aes(x = PD, group = interaction(PD, MG), y = emmean, ymin = lower.CL, ymax = upper.CL, label = trimws(.group))) +
   geom_errorbar(width = 0.15, size = 0.75, position = position_dodge(width = 0.2), aes(color = MG)) + 
   geom_point(position = position_dodge(width = 0.2)) + 
   geom_text(position = position_dodge(width = 1)) +
-  facet_wrap(~ Irr) +
-  scale_y_continuous(name = 'yield') +
+  facet_irr + xaxis_pd +
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)')) +
   scale_color_manual(values = c('goldenrod', 'forestgreen')) +
   theme(legend.position = c(0.9, 0.15))
 
@@ -137,7 +140,7 @@ ggplot(cld_cfu, aes(x = PD, group = interaction(PD, MG), y = emmean, ymin = lowe
   geom_errorbar(width = 0.15, size = 0.75, position = position_dodge(width = 0.2), aes(color = MG)) + 
   geom_point(position = position_dodge(width = 0.2)) + 
   geom_text(position = position_dodge(width = 1)) +
-  facet_wrap(~ Irr) +
+  facet_irr + xaxis_pd +
   scale_y_log10(name = 'CFU') +
   scale_color_manual(values = c('goldenrod', 'forestgreen')) +
   theme(legend.position = 'none')
@@ -146,7 +149,7 @@ ggplot(cld_audpc, aes(x = PD, group = interaction(PD, MG), y = emmean, ymin = lo
   geom_errorbar(width = 0.15, size = 0.75, position = position_dodge(width = 0.2), aes(color = MG)) + 
   geom_point(position = position_dodge(width = 0.2)) + 
   geom_text(position = position_dodge(width = 1)) +
-  facet_wrap(~ Irr) +
+  facet_irr + xaxis_pd +
   scale_y_log10(name = 'AUDPC') +
   scale_color_manual(values = c('goldenrod', 'forestgreen')) +
   theme(legend.position = 'none')
