@@ -1,0 +1,170 @@
+---
+title: "Planting x irrigation analysis"
+author: "Quentin D. Read"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+Load and clean up data. Add a column to denote the resistant versus susceptible genotypes.
+
+```{r}
+library(data.table)
+library(ggplot2)
+library(brms)
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(multcomp)
+
+windowsFonts(`fgbook` = windowsFont("Franklin Gothic Book"))
+th <- theme_bw(base_family = 'fgbook',
+               base_size = 14) + 
+  theme(panel.grid = element_blank(),
+        strip.background = element_blank())
+theme_set(th)
+
+dat <- fread('Datacom.csv', na.strings = '.', stringsAsFactors = TRUE)
+dat[, PD := factor(PD)]
+dat[, MG := factor(MG)]
+dat[, Rep := factor(Rep)]
+dat[, Irr := factor(Irr, levels = c('Nonirr', 'Irr'))]
+dat[, resistance := factor(ifelse(Strains %in% c("60561121", "60561331", "DS880", "DT974290"), 'R', 'S'))]
+```
+
+Characteristics of strains (maturity group and resistance). There are six MG4 strains, four susceptible and two resistant, and two MG5 strains, both resistant. We will not directly account for maturity group in the analysis. Instead, we will treat resistance as a fixed effect, with strain nested within it as a random effect (each strain is unique and has its own resistance category).
+
+```{r}
+unique(dat[, .(Strains, MG, resistance)])
+```
+
+
+Initial visualizations of patterns and distributions. Debbie's choice to log-transform CFU and AUDPC but not yield seems like a good choice.
+
+```{r}
+p <- ggplot(dat, aes(x = PD, group = interaction(PD, resistance), fill = resistance)) +
+  facet_grid(Irr ~ YR) +
+  labs(x = 'Planting date') +
+  scale_fill_manual(values = c('forestgreen', 'goldenrod'), labels = c('resistant', 'susceptible')) +
+  theme(legend.position = c(0.86, 0.9), legend.title = element_blank())
+
+p + geom_boxplot(aes(y = FinalCFU), position = position_dodge(preserve = 'single')) +
+  scale_y_log10(name = 'Final CFU', labels = scales::comma) 
+
+p + geom_boxplot(aes(y = AUDPC), position = position_dodge(preserve = 'single')) +
+  scale_y_log10(labels = scales::comma) + theme(legend.position = 'none')
+
+p + geom_boxplot(aes(y = YldKgHa), position = position_dodge(preserve = 'single')) +
+  theme(legend.position = 'none')
+```
+
+## Fitting models
+
+The models in the SAS program look overfit because of the high number of interaction terms. I think it is better to look at the data to see where we might have evidence for interactions. There are 8 strains, 6 of them have MG=4 and 2 of them have MG=5 (maturity group).
+
+In this test, rep is nested within year as well as the interaction terms.
+
+The first model fit is singular because the intercepts for each year are doubled up so that's not good. Simplify to just give a random intercept for rep. (Need to confirm with Alemu that rep 1 in 2015 is the same as rep 1 in other years, i.e. is the random effect crossed or nested?)
+
+Note on `lmer()` syntax: `(1|YR/Rep)` is shorthand for `(1|YR) + (1|YR:Rep)`. That means an intercept for year and then rep nested within it.
+
+The model with rep intercept is still singular so simplify further by removing it. Finally, we end up with the maximally complex model that isn't singular, the fourth one we fit. Rep has been removed and we only have a random intercept for year, and no interaction with the other terms.
+
+```{r}
+lmm_full_cfu <- lmer(log1p(FinalCFU) ~ PD * MG * Irr + (1|YR/Rep) + (PD*MG*Irr|YR), data = dat) # Singular. Remove separate year intercept
+ranef(lmm_full_cfu)
+
+lmm_reduced1_cfu <- lmer(log1p(FinalCFU) ~ PD * MG * Irr + (1|Rep) + (PD*MG*Irr|YR), data = dat) # Singular
+ranef(lmm_reduced1_cfu)
+
+lmm_reduced2_cfu <- lmer(log1p(FinalCFU) ~ PD * MG * Irr + (PD*MG*Irr|YR), data = dat) # Does not converge
+
+# Just random effects, conditional variances for year
+lmm_reduced3_cfu <- lmer(log1p(FinalCFU) ~ (PD*MG*Irr|YR), data = dat) # Singular
+
+# Even simpler with just a random intercept for each year.
+lmm_reduced4_cfu <- lmer(log1p(FinalCFU) ~ PD * MG * Irr + (1|YR), data = dat)
+
+anova(lmm_reduced4_cfu)
+```
+
+Now do the same for the other response variables, `AUDPC` and `YldKgHa`.
+
+For AUDPC, it seems like we have valid grounds to include the rep and year random effects. This can be seen from the distribution of the data.
+
+```{r}
+lmm_reduced1_audpc <- lmer(log1p(AUDPC) ~ PD * MG * Irr + (1|Rep) + (PD*MG*Irr|YR), data = dat)
+lmm_reduced2_audpc <- lmer(log1p(AUDPC) ~ PD * MG * Irr + (1|Rep) + (1|YR), data = dat)
+anova(lmm_reduced1_audpc, lmm_reduced2_audpc)
+```
+
+```{r}
+anova(lmm_reduced2_audpc)
+```
+
+
+For yield, we also retain the random intercepts for rep and year (and possibly also the interaction between fixed and random effects)? But the ANOVA (likelihood ratio test) seems to say not to include that complicated random term.
+
+```{r}
+lmm_reduced1_yld <- lmer(YldKgHa ~ PD * MG * Irr + (1|Rep) + (PD*MG*Irr|YR), data = dat)
+lmm_reduced2_yld <- lmer(YldKgHa ~ PD * MG * Irr + (1|Rep) + (1|YR), data = dat)
+anova(lmm_reduced1_yld, lmm_reduced2_yld)
+```
+
+```{r}
+anova(lmm_reduced2_yld)
+```
+
+
+Let's try some contrasts. Transform the log variables back to their original scale.
+
+```{r}
+emmeans_yld <- emmeans(lmm_reduced2_yld, ~ PD + MG + Irr, mode = 'kenward-roger')
+cld_yld <- cld(emmeans_yld, adjust = 'tukey', Letters = letters)
+
+emmeans_cfu <- emmeans(lmm_reduced4_cfu, ~ PD + MG + Irr, mode = 'kenward-roger')
+cld_cfu <- cld(emmeans_cfu, adjust = 'tukey', Letters = letters)
+
+emmeans_audpc <- emmeans(lmm_reduced2_audpc, ~ PD + MG + Irr, mode = 'kenward-roger')
+cld_audpc <- cld(emmeans_audpc, adjust = 'tukey', Letters = letters)
+
+cols_to_transform <- c('emmean', 'lower.CL', 'upper.CL')
+cld_cfu[, cols_to_transform] <- expm1(cld_cfu[, cols_to_transform])
+cld_audpc[, cols_to_transform] <- expm1(cld_audpc[, cols_to_transform])
+```
+
+```{r}
+facet_irr <- facet_wrap(~ Irr, labeller = as_labeller(c('Irr' = 'irrigated', 'Nonirr' = 'not irrigated')))
+xaxis_pd <- scale_x_discrete(name = 'Planting Date', labels = c('April','May','June'))
+
+ggplot(cld_yld, aes(x = PD, group = interaction(PD, MG), y = emmean, ymin = lower.CL, ymax = upper.CL, label = trimws(.group))) +
+  geom_errorbar(width = 0.15, size = 0.75, position = position_dodge(width = 0.2), aes(color = MG)) + 
+  geom_point(position = position_dodge(width = 0.2)) + 
+  geom_text(position = position_dodge(width = 1)) +
+  facet_irr + xaxis_pd +
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)')) +
+  scale_color_manual(values = c('goldenrod', 'forestgreen')) +
+  theme(legend.position = c(0.9, 0.15))
+
+ggplot(cld_cfu, aes(x = PD, group = interaction(PD, MG), y = emmean, ymin = lower.CL, ymax = upper.CL, label = trimws(.group))) +
+  geom_errorbar(width = 0.15, size = 0.75, position = position_dodge(width = 0.2), aes(color = MG)) + 
+  geom_point(position = position_dodge(width = 0.2)) + 
+  geom_text(position = position_dodge(width = 1)) +
+  facet_irr + xaxis_pd +
+  scale_y_log10(name = 'CFU') +
+  scale_color_manual(values = c('goldenrod', 'forestgreen')) +
+  theme(legend.position = 'none')
+
+ggplot(cld_audpc, aes(x = PD, group = interaction(PD, MG), y = emmean, ymin = lower.CL, ymax = upper.CL, label = trimws(.group))) +
+  geom_errorbar(width = 0.15, size = 0.75, position = position_dodge(width = 0.2), aes(color = MG)) + 
+  geom_point(position = position_dodge(width = 0.2)) + 
+  geom_text(position = position_dodge(width = 1)) +
+  facet_irr + xaxis_pd +
+  scale_y_log10(name = 'AUDPC') +
+  scale_color_manual(values = c('goldenrod', 'forestgreen')) +
+  theme(legend.position = 'none')
+```
+
