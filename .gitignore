@@ -2,3 +2,10 @@
 .Rhistory
 .RData
 .Ruserdata
+
+# Notebooks rendered from RMarkdown
+*.html
+*.pdf
+
+# Figure directory
+figs/
