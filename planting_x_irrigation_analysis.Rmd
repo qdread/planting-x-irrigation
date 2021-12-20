@@ -9,6 +9,12 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 ```
 
+# Change log
+
+- 20 Dec 2021: convert planting date to an ordered factor
+- 13 Dec 2021: do analysis by genotype separately; add tables
+- 09 Dec 2021: original version
+
 # Summary
 
 Here is some initial work on the planting by irrigation analysis. So far I have fit some linear mixed effects models using planting date, irrigation, and whether the strain is resistant to charcoal rust as fixed effects, and all their interactions. We control for random variation among years, replicates, and strains (genotypes). See the interpretation at the end of the document for some ideas of how to discuss the effects.
@@ -37,7 +43,7 @@ th <- theme_bw(base_family = 'fgbook',
 theme_set(th)
 
 dat <- fread('Datacom.csv', na.strings = '.', stringsAsFactors = TRUE)
-dat[, PD := factor(PD)]
+dat[, PD := ordered(PD)]
 dat[, MG := factor(MG)]
 dat[, Rep := factor(Rep)]
 dat[, Irr := factor(Irr, levels = c('Nonirr', 'Irr'))]
@@ -185,7 +191,23 @@ For **CFU**, the susceptible strains have higher disease load. This is more or l
 
 For **AUDPC**, we would probably expect similar patterns as we have for CFU. It's definitely similar in that the susceptible strains have higher AUDPC, also not very surprising. However, we do see a significant F-statistic for the main effect of planting date. But this is somewhat confusing to interpret because of the interaction effects. There is an interaction between planting date and irrigation where irrigated plots planted in May had a lower AUDPC than anything else.
 
+In summary for AUDPC,
+
+-	Susceptible genotypes have a higher AUDPC (makes sense)
+-	Overall, irrigation does not really affect AUDPC
+-	If you do not irrigate, there is no effect of planting date on AUDPC (susceptible genotypes always have higher)
+-	If you do irrigate and if you plant in June, the resistant genotypes have as high of AUDPC as the susceptible (so the benefit of being resistant goes away)
+
+
 **Yield** has a different pattern than anything else. The irrigation treatment obviously has a strong positive effect. Planting date also has a strong effect where later planting date ends up having higher yield. Resistant strains also have a higher yield overall. However there is also a strong interaction between planting date and resistance, where the yield benefit for resistant strains is higher in the earlier planting dates, but the difference in yield between resistant and susceptible strains goes away for the later planting dates.
+
+In summary for yield,
+
+-	Yield is higher if you irrigate (makes sense)
+-	Yield does not vary by planting date for resistant genotypes
+-	Yield is higher if you plant later for the susceptible genotypes
+-	Yield is higher for resistant compared to susceptible if you plant early, but there is no difference in yield between resistant and susceptible if you plant late
+
 
 ## Tables of marginal means
 
@@ -256,6 +278,10 @@ anova(lmm_yield_bystrain, ddf = 'Kenward-Roger') |>
 Here are paneled plots to show the genotype comparisons in each treatment combination. Note that the letters are only meaningful **within** each panel. So `a` in one panel has nothing to do with `a` in another panel. They might be the same or might be different.
 
 The colors of the points and error bars indicate resistant vs. susceptible strains, and the shape of the points indicates maturity group.
+
+Some results to take away from these plots:
+
+These plots show, within each treatment combination of planting date by irrigation, which genotypes have higher yield and which genotypes have higher disease load, if any. For example if you look at the plot for yield, it shows that some of the resistant genotypes have significantly higher yield than some of the susceptible genotypes, especially in the earlier planting dates. But this difference is much less in the June planting date, though one of the genotypes (DS880) still performs better than some of the other ones for yield in June plantings. 
 
 ```{r plots by strain, echo = FALSE, fig.height = 9, fig.width = 7.5}
 cols_to_transform <- c('emmean', 'lower.CL', 'upper.CL')
