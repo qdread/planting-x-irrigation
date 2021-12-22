@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 
 # Change log
 
+- 22 Dec 2021: add analysis where resistant and susceptible are pooled
 - 20 Dec 2021: convert planting date to an ordered factor
 - 13 Dec 2021: do analysis by genotype separately; add tables
 - 09 Dec 2021: original version
@@ -373,5 +374,73 @@ cld_audpc_bystrain[, cols_to_transform] <- expm1(cld_audpc_bystrain[, cols_to_tr
 cld2kable2(cld_cfu_bystrain, 'Marginal means table: CFU, separate comparisons of genotype for each treatment')
 cld2kable2(cld_audpc_bystrain, 'Marginal means table: AUDPC, separate comparisons of genotype for each treatment')
 cld2kable2(cld_yield_bystrain, 'Marginal means table: Yield, separate comparisons of genotype for each treatment')
+```
+
+## Marginal means averaging across all genotypes
+
+**Added 22 Dec**: Alemu requested averaging across genotypes to just look at the treatment effects generally across genotypes. Here I do the marginal means pooled across resistant and susceptible for all the response variables, and make tables and plots.
+
+```{r}
+emmeans_yld_pooled <- emmeans(lmm_full_yield, ~ PD + Irr, mode = 'kenward-roger')
+cld_yld_pooled <- cld(emmeans_yld_pooled, adjust = 'tukey', Letters = letters)
+
+emmeans_cfu_pooled <- emmeans(lmm_full_cfu, ~ PD + Irr, mode = 'kenward-roger')
+cld_cfu_pooled <- cld(emmeans_cfu_pooled, adjust = 'tukey', Letters = letters)
+
+emmeans_audpc_pooled <- emmeans(lmm_full_audpc, ~ PD + Irr, mode = 'kenward-roger')
+cld_audpc_pooled <- cld(emmeans_audpc_pooled, adjust = 'tukey', Letters = letters)
+
+cols_to_transform <- c('emmean', 'lower.CL', 'upper.CL')
+cld_cfu_pooled[, cols_to_transform] <- expm1(cld_cfu_pooled[, cols_to_transform])
+cld_audpc_pooled[, cols_to_transform] <- expm1(cld_audpc_pooled[, cols_to_transform])
+```
+
+```{r cld tables pooled, echo = FALSE}
+cld2kable3 <- function(clddat, table_name) {
+  clddat <- setDT(as.data.frame(clddat)) 
+  clddat[, PD := factor(PD, labels = c('April','May','June'))]
+  clddat[, Irr := factor(Irr, labels = c('non-irrigated', 'irrigated'))]
+  clddat[, .group := gsub(' ', '', .group)]
+  clddat[, c('SE', 'df') := NULL]
+  knitr::kable(clddat[order(PD, Irr)],
+               digits = 1,
+               col.names = c('planting date', 'irrigation', 'marginal mean', 'lower 95%', 'upper 95%', ''),
+               caption = table_name)
+}
+cld2kable3(cld_cfu_pooled, 'Marginal means table: CFU, pooled')
+cld2kable3(cld_audpc_pooled, 'Marginal means table: AUDPC, pooled')
+cld2kable3(cld_yld_pooled, 'Marginal means table: Yield, pooled')
+```
+
+```{r plots pooled, echo = FALSE}
+colors_irr <- scale_color_manual(name = '', values = c('indianred', 'slateblue'), labels = c('not irrigated', 'irrigated'))
+xscale_pd <- scale_x_discrete(name = 'Planting date', labels = c('April', 'May', 'June'))
+
+ggplot(cld_cfu_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(aes(color = Irr), width = 0.15, size = 0.75, position = position_dodge(width = 0.4)) + 
+  geom_point(aes(group = Irr), size = 2, position = position_dodge(width = 0.4)) + 
+  geom_text(aes(group = Irr), hjust = -1, position = position_dodge(width = 0.4)) +
+  colors_irr + xscale_pd + 
+  scale_y_log10(name = 'Final CFU', labels = scales::comma) +
+  theme(legend.position = 'bottom') +
+  ggtitle('CFU')
+
+ggplot(cld_audpc_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(aes(color = Irr), width = 0.15, size = 0.75, position = position_dodge(width = 0.4)) + 
+  geom_point(aes(group = Irr), size = 2, position = position_dodge(width = 0.4)) + 
+  geom_text(aes(group = Irr), hjust = -1, position = position_dodge(width = 0.4)) +
+  colors_irr + xscale_pd + 
+  scale_y_log10(name = 'AUDPC', labels = scales::comma) +
+  theme(legend.position = 'bottom') +
+  ggtitle('AUDPC')
+
+ggplot(cld_yld_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(aes(color = Irr), width = 0.15, size = 0.75, position = position_dodge(width = 0.4)) + 
+  geom_point(aes(group = Irr), size = 2, position = position_dodge(width = 0.4)) + 
+  geom_text(aes(group = Irr), hjust = -1, position = position_dodge(width = 0.4)) +
+  colors_irr + xscale_pd + 
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)')) +
+  theme(legend.position = 'bottom') +
+  ggtitle('Yield')
 ```
 
