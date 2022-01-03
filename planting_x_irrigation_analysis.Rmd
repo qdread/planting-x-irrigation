@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 
 # Change log
 
+- 03 Jan 2022: update formatting of all figures based on checklist
 - 22 Dec 2021: add analysis where resistant and susceptible are pooled
 - 20 Dec 2021: convert planting date to an ordered factor
 - 13 Dec 2021: do analysis by genotype separately; add tables
@@ -26,7 +27,8 @@ There are effects of the treatments and some interaction effects for the disease
 
 ## Setup
 
-Load and clean up data. Add a column to denote the resistant versus susceptible genotypes.
+Load and clean up data. Add a column to denote the resistant versus susceptible genotypes. 
+*edit 03 Jan*: Include a lookup table to match the genotype names in the original data with the correctly formatted genotype names.
 
 ```{r}
 library(data.table)
@@ -49,6 +51,10 @@ dat[, MG := factor(MG)]
 dat[, Rep := factor(Rep)]
 dat[, Irr := factor(Irr, levels = c('Nonirr', 'Irr'))]
 dat[, resistance := factor(ifelse(Strains %in% c("60561121", "60561331", "DS880", "DT974290"), 'R', 'S'))]
+
+geno_names <- c("DT974290", "DS880", "60561121", "60561331", "LS980358", "Pharaoh", "6070242",  "DS97949")
+geno_fullnames <- c('DT97-4290','DS-880','DS6056-1-1-2-1','6056-1-3-3-1','LS98-0358','Pharaoh','DS6070-2-4-2','DS-97949')
+geno_lookup <- data.table(name = geno_names, full_name = geno_fullnames)
 ```
 
 Characteristics of strains (maturity group and resistance). There are six MG4 strains, four susceptible and two resistant, and two MG5 strains, both resistant. We will not directly account for maturity group in the analysis. Instead, we will treat resistance as a fixed effect, with strain nested within it as a random effect (each strain is unique and has its own resistance category).
@@ -62,8 +68,10 @@ unique(dat[, .(Strains, MG, resistance)])
 Initial visualizations of patterns and distributions. Debbie's choice to log-transform CFU and AUDPC but not yield seems like a good choice.
 
 ```{r initial plots, echo = FALSE}
+dat[, irr_toplot := factor(Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))]
+
 p <- ggplot(dat, aes(x = PD, group = interaction(PD, resistance), fill = resistance)) +
-  facet_grid(Irr ~ YR, labeller = labeller(Irr = c('Irr' = 'irrigated', 'Nonirr' = 'not irrigated'))) +
+  facet_grid(irr_toplot ~ YR) +
   scale_x_discrete(name = 'Planting date', labels = c('April','May','June')) +
   scale_fill_manual(values = c('forestgreen', 'goldenrod'), labels = c('resistant', 'susceptible')) +
   theme(legend.position = c(0.86, 0.9), legend.title = element_blank())
@@ -137,13 +145,13 @@ Next let's try some contrasts. Transform the log variables back to their origina
 
 ```{r}
 emmeans_yld <- emmeans(lmm_full_yield, ~ PD + Irr + resistance, mode = 'kenward-roger')
-cld_yld <- cld(emmeans_yld, adjust = 'tukey', Letters = letters)
+cld_yld <- cld(emmeans_yld, adjust = 'sidak', Letters = letters)
 
 emmeans_cfu <- emmeans(lmm_full_cfu, ~ PD + Irr + resistance, mode = 'kenward-roger')
-cld_cfu <- cld(emmeans_cfu, adjust = 'tukey', Letters = letters)
+cld_cfu <- cld(emmeans_cfu, adjust = 'sidak', Letters = letters)
 
 emmeans_audpc <- emmeans(lmm_full_audpc, ~ PD + Irr + resistance, mode = 'kenward-roger')
-cld_audpc <- cld(emmeans_audpc, adjust = 'tukey', Letters = letters)
+cld_audpc <- cld(emmeans_audpc, adjust = 'sidak', Letters = letters)
 
 cols_to_transform <- c('emmean', 'lower.CL', 'upper.CL')
 cld_cfu[, cols_to_transform] <- expm1(cld_cfu[, cols_to_transform])
@@ -153,7 +161,11 @@ cld_audpc[, cols_to_transform] <- expm1(cld_audpc[, cols_to_transform])
 Here are the plots with marginal treatment means (across years), 95% confidence intervals, and letters indicating which ones are significantly different using the Tukey adjustment for multiple comparisons.
 
 ```{r plots, echo = FALSE}
-facet_irr <- facet_wrap(~ Irr, labeller = as_labeller(c('Irr' = 'irrigated', 'Nonirr' = 'not irrigated')))
+cld_cfu$irr_toplot <- factor(cld_cfu$Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))
+cld_audpc$irr_toplot <- factor(cld_audpc$Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))
+cld_yld$irr_toplot <- factor(cld_yld$Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))
+
+facet_irr <- facet_wrap(~ irr_toplot)
 xaxis_pd <- scale_x_discrete(name = 'Planting Date', labels = c('April','May','June'))
 
 ggplot(cld_cfu, aes(x = PD, group = interaction(PD, resistance), y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
@@ -171,8 +183,8 @@ ggplot(cld_audpc, aes(x = PD, group = interaction(PD, resistance), y = emmean, y
   geom_text(position = position_dodge(width = 0.25), aes(hjust = ifelse(resistance == 'R', 1.3, -0.4))) +
   facet_irr + xaxis_pd +
   scale_y_log10(name = 'AUDPC', labels = scales::comma) +
-  scale_color_manual(values = c('forestgreen', 'goldenrod')) +
-  theme(legend.position = 'none')
+  scale_color_manual(values = c('forestgreen', 'goldenrod'), labels = c('resistant', 'susceptible')) +
+  theme(legend.position = c(0.36, 0.15), legend.title = element_blank())
 
 ggplot(cld_yld, aes(x = PD, group = interaction(PD, resistance), y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
   geom_errorbar(width = 0.15, size = 0.75, position = position_dodge(width = 0.2), aes(color = resistance)) + 
@@ -181,7 +193,7 @@ ggplot(cld_yld, aes(x = PD, group = interaction(PD, resistance), y = emmean, ymi
   facet_irr + xaxis_pd +
   scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)')) +
   scale_color_manual(values = c('forestgreen', 'goldenrod'), labels = c('resistant', 'susceptible')) +
-  theme(legend.position = c(0.84, 0.15), legend.title = element_blank())
+  theme(legend.position = c(0.36, 0.15), legend.title = element_blank())
 ```
 
 # Initial interpretation
@@ -221,7 +233,7 @@ cld2kable <- function(clddat, table_name) {
   clddat[, resistance := factor(resistance, labels = c('resistant', 'susceptible'))]
   clddat[, Irr := factor(Irr, labels = c('non-irrigated', 'irrigated'))]
   clddat[, .group := gsub(' ', '', .group)]
-  clddat[, c('SE', 'df') := NULL]
+  clddat[, c('SE', 'df', 'irr_toplot') := NULL]
   knitr::kable(clddat[order(PD, resistance, Irr)],
                digits = 1,
                col.names = c('planting date', 'irrigation', 'resistance', 'marginal mean', 'lower 95%', 'upper 95%', ''),
@@ -239,7 +251,7 @@ In this separate analysis requested by Alemu (13 Dec.), I replaced the fixed fac
 
 ```{r fit by strain}
 lmm_cfu_bystrain <- lmer(log1p(FinalCFU) ~ PD * Irr * Strains + (1|YR/Rep), data = dat)
-lmm_audpc_bystrain <- lmer(log1p(AUDPC) ~PD * Irr * Strains + (1|YR/Rep), data = dat)
+lmm_audpc_bystrain <- lmer(log1p(AUDPC) ~ PD * Irr * Strains + (1|YR/Rep), data = dat)
 lmm_yield_bystrain <- lmer(YldKgHa ~ PD * Irr * Strains + (1|YR/Rep), data = dat)
 ```
 
@@ -250,9 +262,9 @@ emmeans_cfu_bystrain <- emmeans(lmm_cfu_bystrain, ~ Strains, by = c('PD', 'Irr')
 emmeans_audpc_bystrain <- emmeans(lmm_audpc_bystrain, ~ Strains, by = c('PD', 'Irr'), mode = 'kenward-roger')
 emmeans_yield_bystrain <- emmeans(lmm_yield_bystrain, ~ Strains, by = c('PD', 'Irr'), mode = 'kenward-roger')
 
-cld_cfu_bystrain <- cld(emmeans_cfu_bystrain, adjust = 'tukey', Letters = letters)
-cld_audpc_bystrain <- cld(emmeans_audpc_bystrain, adjust = 'tukey', Letters = letters)
-cld_yield_bystrain <- cld(emmeans_yield_bystrain, adjust = 'tukey', Letters = letters)
+cld_cfu_bystrain <- cld(emmeans_cfu_bystrain, adjust = 'sidak', Letters = letters)
+cld_audpc_bystrain <- cld(emmeans_audpc_bystrain, adjust = 'sidak', Letters = letters)
+cld_yield_bystrain <- cld(emmeans_yield_bystrain, adjust = 'sidak', Letters = letters)
 ```
 
 ## ANOVA tables by genotype
@@ -284,7 +296,7 @@ Some results to take away from these plots:
 
 These plots show, within each treatment combination of planting date by irrigation, which genotypes have higher yield and which genotypes have higher disease load, if any. For example if you look at the plot for yield, it shows that some of the resistant genotypes have significantly higher yield than some of the susceptible genotypes, especially in the earlier planting dates. But this difference is much less in the June planting date, though one of the genotypes (DS880) still performs better than some of the other ones for yield in June plantings. 
 
-```{r plots by strain, echo = FALSE, fig.height = 9, fig.width = 7.5}
+```{r plots by strain setup, echo = FALSE}
 cols_to_transform <- c('emmean', 'lower.CL', 'upper.CL')
 strain_lookup <- unique(dat[, .(Strains, MG, resistance)])
 
@@ -306,28 +318,38 @@ cld_cfu_bystrain_dat[lower.CL < 0, lower.CL := 0.01]
 
 # Reorder factors based on the first panel
 strain_order_cfu <- cld_cfu_bystrain_dat[PD == 1 & Irr == "Nonirr"][order(emmean)]$Strains
-cld_cfu_bystrain_dat[, Strains := factor(Strains, levels = as.character(strain_order_cfu))]
+cld_cfu_bystrain_dat[, Strains := factor(Strains, levels = as.character(strain_order_cfu),
+                                         labels = with(geno_lookup, full_name[match(as.character(strain_order_cfu), name)]))]
+cld_cfu_bystrain_dat[, Irr := factor(Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))]
 
 strain_order_audpc <- cld_audpc_bystrain_dat[PD == 1 & Irr == "Nonirr"][order(emmean)]$Strains
-cld_audpc_bystrain_dat[, Strains := factor(Strains, levels = as.character(strain_order_audpc))]
+cld_audpc_bystrain_dat[, Strains := factor(Strains, levels = as.character(strain_order_audpc),
+                                           labels = with(geno_lookup, full_name[match(as.character(strain_order_audpc), name)]))]
+cld_audpc_bystrain_dat[, Irr := factor(Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))]
 
 strain_order_yield <- cld_yield_bystrain_dat[PD == 1 & Irr == "Nonirr"][order(emmean)]$Strains
-cld_yield_bystrain_dat[, Strains := factor(Strains, levels = as.character(strain_order_yield))]
+cld_yield_bystrain_dat[, Strains := factor(Strains, levels = as.character(strain_order_yield),
+                                           labels = with(geno_lookup, full_name[match(as.character(strain_order_yield), name)]))]
+cld_yield_bystrain_dat[, Irr := factor(Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))]
 
 colors_res <- scale_color_manual(values = c('forestgreen', 'goldenrod'), labels = c('resistant', 'susceptible'))
 shape_mg <- scale_shape_discrete(name = 'maturity group', labels = c('IV', 'V'))
-grid_pd_irr <- facet_grid(PD ~ Irr, labeller = labeller(Irr = c(Nonirr = 'not irrigated', Irr = 'irrigated'),
-                                                        PD = c('1' = 'April', '2' = 'May', '3' = 'June')))
+grid_pd_irr <- facet_grid(PD ~ Irr, labeller = labeller(PD = c('1' = 'April', '2' = 'May', '3' = 'June')))
+```
 
+```{r plots by strain, echo = FALSE, fig.height = 9, fig.width = 7.5}
 ggplot(cld_cfu_bystrain_dat, aes(x = Strains, y = emmean, ymin = lower.CL, ymax = upper.CL, shape = MG, label = gsub(' ', '', .group))) +
   geom_errorbar(aes(color = resistance), width = 0.15, size = 0.75) + 
   geom_point(size = 2) + 
   geom_text(nudge_x = 0.15, hjust = 0) +
   colors_res + grid_pd_irr + shape_mg +
   scale_y_log10(name = 'Final CFU', labels = scales::comma) +
-  theme(legend.position = 'bottom',
+  theme(legend.position = c(0.25, 0.06), legend.direction = 'horizontal', legend.spacing.y = unit(-3, 'mm'),
+        legend.title = element_text(size = rel(0.7)),
+        legend.text = element_text(size = rel(0.6)),
+        legend.background = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  ggtitle('CFU')
+  labs(x = 'Genotypes') 
 
 ggplot(cld_audpc_bystrain_dat, aes(x = Strains, y = emmean, ymin = lower.CL, ymax = upper.CL, shape = MG, label = gsub(' ', '', .group))) +
   geom_errorbar(aes(color = resistance), width = 0.15, size = 0.75) + 
@@ -335,9 +357,12 @@ ggplot(cld_audpc_bystrain_dat, aes(x = Strains, y = emmean, ymin = lower.CL, yma
   geom_text(nudge_x = 0.15, hjust = 0) +
   colors_res + grid_pd_irr + shape_mg +
   scale_y_log10(name = 'AUDPC', labels = scales::comma) +
-  theme(legend.position = 'bottom',
+  theme(legend.position = c(0.25, 0.06), legend.direction = 'horizontal', legend.spacing.y = unit(-3, 'mm'),
+        legend.title = element_text(size = rel(0.7)),
+        legend.text = element_text(size = rel(0.6)),
+        legend.background = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  ggtitle('AUDPC')
+  labs(x = 'Genotypes') 
 
 ggplot(cld_yield_bystrain_dat, aes(x = Strains, y = emmean, ymin = lower.CL, ymax = upper.CL, shape = MG, label = gsub(' ', '', .group))) +
   geom_errorbar(aes(color = resistance), width = 0.15, size = 0.75) + 
@@ -345,9 +370,12 @@ ggplot(cld_yield_bystrain_dat, aes(x = Strains, y = emmean, ymin = lower.CL, yma
   geom_text(nudge_x = 0.15, hjust = 0) +
   colors_res + grid_pd_irr + shape_mg +
   scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)')) +
-  theme(legend.position = 'bottom',
+  theme(legend.position = c(0.25, 0.06), legend.direction = 'horizontal', legend.spacing.y = unit(-3, 'mm'),
+        legend.title = element_text(size = rel(0.7)),
+        legend.text = element_text(size = rel(0.6)),
+        legend.background = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  ggtitle('Yield')
+  labs(x = 'Genotypes') 
 ```
 
 ## Tables of marginal means by genotype
@@ -357,10 +385,11 @@ Here are tables with the same results as in the graphs above.
 ```{r cld tables by strain, echo = FALSE}
 cld2kable2 <- function(clddat, table_name) {
   clddat <- setDT(as.data.frame(clddat)) 
+  clddat <- geno_lookup[clddat, on = 'name==Strains']
   clddat[, PD := factor(PD, labels = c('April','May','June'))]
   clddat[, Irr := factor(Irr, labels = c('non-irrigated', 'irrigated'))]
   clddat[, .group := gsub(' ', '', .group)]
-  clddat[, c('SE', 'df') := NULL]
+  clddat[, c('SE', 'df', 'name') := NULL]
   knitr::kable(clddat[order(PD, Irr)],
                digits = 1,
                col.names = c('genotype', 'planting date', 'irrigation', 'marginal mean', 'lower 95%', 'upper 95%', ''),
@@ -382,13 +411,13 @@ cld2kable2(cld_yield_bystrain, 'Marginal means table: Yield, separate comparison
 
 ```{r}
 emmeans_yld_pooled <- emmeans(lmm_full_yield, ~ PD + Irr, mode = 'kenward-roger')
-cld_yld_pooled <- cld(emmeans_yld_pooled, adjust = 'tukey', Letters = letters)
+cld_yld_pooled <- cld(emmeans_yld_pooled, adjust = 'sidak', Letters = letters)
 
 emmeans_cfu_pooled <- emmeans(lmm_full_cfu, ~ PD + Irr, mode = 'kenward-roger')
-cld_cfu_pooled <- cld(emmeans_cfu_pooled, adjust = 'tukey', Letters = letters)
+cld_cfu_pooled <- cld(emmeans_cfu_pooled, adjust = 'sidak', Letters = letters)
 
 emmeans_audpc_pooled <- emmeans(lmm_full_audpc, ~ PD + Irr, mode = 'kenward-roger')
-cld_audpc_pooled <- cld(emmeans_audpc_pooled, adjust = 'tukey', Letters = letters)
+cld_audpc_pooled <- cld(emmeans_audpc_pooled, adjust = 'sidak', Letters = letters)
 
 cols_to_transform <- c('emmean', 'lower.CL', 'upper.CL')
 cld_cfu_pooled[, cols_to_transform] <- expm1(cld_cfu_pooled[, cols_to_transform])
@@ -413,7 +442,11 @@ cld2kable3(cld_yld_pooled, 'Marginal means table: Yield, pooled')
 ```
 
 ```{r plots pooled, echo = FALSE}
-colors_irr <- scale_color_manual(name = '', values = c('indianred', 'slateblue'), labels = c('not irrigated', 'irrigated'))
+cld_cfu_pooled$Irr <- factor(cld_cfu_pooled$Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))
+cld_audpc_pooled$Irr <- factor(cld_audpc_pooled$Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))
+cld_yld_pooled$Irr <- factor(cld_yld_pooled$Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))
+
+colors_irr <- scale_color_manual(name = '', values = c('slateblue', 'indianred'))
 xscale_pd <- scale_x_discrete(name = 'Planting date', labels = c('April', 'May', 'June'))
 
 ggplot(cld_cfu_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
@@ -422,8 +455,7 @@ ggplot(cld_cfu_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL,
   geom_text(aes(group = Irr), hjust = -1, position = position_dodge(width = 0.4)) +
   colors_irr + xscale_pd + 
   scale_y_log10(name = 'Final CFU', labels = scales::comma) +
-  theme(legend.position = 'bottom') +
-  ggtitle('CFU')
+  theme(legend.position = 'bottom')
 
 ggplot(cld_audpc_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
   geom_errorbar(aes(color = Irr), width = 0.15, size = 0.75, position = position_dodge(width = 0.4)) + 
@@ -431,8 +463,7 @@ ggplot(cld_audpc_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.C
   geom_text(aes(group = Irr), hjust = -1, position = position_dodge(width = 0.4)) +
   colors_irr + xscale_pd + 
   scale_y_log10(name = 'AUDPC', labels = scales::comma) +
-  theme(legend.position = 'bottom') +
-  ggtitle('AUDPC')
+  theme(legend.position = 'bottom')
 
 ggplot(cld_yld_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
   geom_errorbar(aes(color = Irr), width = 0.15, size = 0.75, position = position_dodge(width = 0.4)) + 
@@ -440,7 +471,6 @@ ggplot(cld_yld_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL,
   geom_text(aes(group = Irr), hjust = -1, position = position_dodge(width = 0.4)) +
   colors_irr + xscale_pd + 
   scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)')) +
-  theme(legend.position = 'bottom') +
-  ggtitle('Yield')
+  theme(legend.position = 'bottom')
 ```
 
