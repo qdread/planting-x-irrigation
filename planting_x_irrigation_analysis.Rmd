@@ -441,21 +441,23 @@ cld2kable3(cld_audpc_pooled, 'Marginal means table: AUDPC, pooled')
 cld2kable3(cld_yld_pooled, 'Marginal means table: Yield, pooled')
 ```
 
-```{r plots pooled, echo = FALSE}
+```{r plots pooled setup, echo = FALSE}
 cld_cfu_pooled$Irr <- factor(cld_cfu_pooled$Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))
 cld_audpc_pooled$Irr <- factor(cld_audpc_pooled$Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))
 cld_yld_pooled$Irr <- factor(cld_yld_pooled$Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))
 
 colors_irr <- scale_color_manual(name = '', values = c('slateblue', 'indianred'))
 xscale_pd <- scale_x_discrete(name = 'Planting date', labels = c('April', 'May', 'June'))
+```
 
+```{r plots pooled, echo = FALSE}
 ggplot(cld_cfu_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
   geom_errorbar(aes(color = Irr), width = 0.15, size = 0.75, position = position_dodge(width = 0.4)) + 
   geom_point(aes(group = Irr), size = 2, position = position_dodge(width = 0.4)) + 
   geom_text(aes(group = Irr), hjust = -1, position = position_dodge(width = 0.4)) +
   colors_irr + xscale_pd + 
-  scale_y_log10(name = 'Final CFU', labels = scales::comma) +
-  theme(legend.position = 'bottom')
+  scale_y_log10(name = 'Final CFU', labels = scales::comma, limits = c(1, 59999)) +
+  theme(legend.position = c(0.15, 0.2), legend.background = element_blank())
 
 ggplot(cld_audpc_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
   geom_errorbar(aes(color = Irr), width = 0.15, size = 0.75, position = position_dodge(width = 0.4)) + 
@@ -463,7 +465,7 @@ ggplot(cld_audpc_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.C
   geom_text(aes(group = Irr), hjust = -1, position = position_dodge(width = 0.4)) +
   colors_irr + xscale_pd + 
   scale_y_log10(name = 'AUDPC', labels = scales::comma) +
-  theme(legend.position = 'bottom')
+  theme(legend.position = c(0.15, 0.2), legend.background = element_blank())
 
 ggplot(cld_yld_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
   geom_errorbar(aes(color = Irr), width = 0.15, size = 0.75, position = position_dodge(width = 0.4)) + 
@@ -471,6 +473,71 @@ ggplot(cld_yld_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL,
   geom_text(aes(group = Irr), hjust = -1, position = position_dodge(width = 0.4)) +
   colors_irr + xscale_pd + 
   scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)')) +
-  theme(legend.position = 'bottom')
+  theme(legend.position = c(0.15, 0.9), legend.background = element_blank())
 ```
 
+\newpage
+
+## Regression of yield versus AUDPC across treatments
+
+This is an additional analysis added on 3 January 2022. Here we do the fit and get the bootstrap confidence intervals on the predicted values too.
+
+```{r, eval = FALSE, echo = FALSE}
+# This section currently not used.
+yld_vs_audpc_lmm <- lmer(YldKgHa ~ log1p(AUDPC) * PD + (1|YR/Rep) + (1|Strains), data = dat)
+
+xpred <- expm1(seq(log1p(0), log1p(107500), length.out = 101))
+pred_dat <- CJ(AUDPC = xpred, PD = ordered(1:3))
+
+pred_dat[, YldKgHa := predict(yld_vs_audpc_lmm, newdata = pred_dat, re.form = ~ 0)]
+
+boot_pred <- bootMer(yld_vs_audpc_lmm, function(fit) predict(fit, newdata = pred_dat, re.form = ~ 0), nsim = 999)
+boot_quant <- apply(boot_pred$t, 2, quantile, probs = c(0.025, 0.975))
+dimnames(boot_quant)[[1]] <- c('q025', 'q975')
+
+pred_dat <- cbind(pred_dat, t(boot_quant))
+
+ggplot(pred_dat, aes(x = AUDPC, y = YldKgHa, ymin = q025, ymax = q975, color = PD, fill = PD)) +
+  geom_ribbon(alpha = 0.25, color = NA) +
+  geom_line() +
+  scale_x_continuous(trans = 'log1p', breaks = 10^(1:5), labels = scales::comma) +
+  scale_color_viridis_d(name = 'planting date', labels = c('April','May','June')) +
+  theme(legend.position = c(0.15, 0.2)) +
+  guides(fill = 'none')
+```
+
+```{r}
+yld_vs_audpc_lmm <- lmer(YldKgHa ~ log1p(AUDPC) * PD * Irr + (1|YR/Rep), data = dat)
+
+xpred <- expm1(seq(log1p(0), log1p(107500), length.out = 101))
+pred_dat <- CJ(AUDPC = xpred, PD = ordered(1:3), Irr = factor(c('Irr','Nonirr')))
+
+pred_dat[, YldKgHa := predict(yld_vs_audpc_lmm, newdata = pred_dat, re.form = ~ 0)]
+
+boot_pred <- bootMer(yld_vs_audpc_lmm, function(fit) predict(fit, newdata = pred_dat, re.form = ~ 0), nsim = 999)
+boot_quant <- apply(boot_pred$t, 2, quantile, probs = c(0.025, 0.975))
+dimnames(boot_quant)[[1]] <- c('q025', 'q975')
+
+pred_dat <- cbind(pred_dat, t(boot_quant))
+
+ggplot(pred_dat, aes(x = AUDPC, y = YldKgHa, color = PD, fill = PD)) +
+  geom_ribbon(aes(ymin = q025, ymax = q975), alpha = 0.25, color = NA) +
+  geom_line() +
+  geom_point(data = dat) +
+  facet_wrap(~ Irr, labeller = labeller(Irr = c(Irr = 'irrigated', Nonirr = 'non-irrigated'))) +
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)')) +
+  scale_x_continuous(trans = 'log1p', breaks = 10^(1:5), labels = scales::comma) +
+  scale_color_viridis_d(name = 'planting date', labels = c('April','May','June')) +
+  theme(legend.position = c(0.15, 0.2)) +
+  guides(fill = 'none')
+```
+
+Summary statistics can be generated if needed.
+
+###FIXME
+
+- anova table for the regression
+- make sure it's not bad to ignore genotype effect
+- change limits on predicted data to only cover the observed data min and max
+- maybe use dotted lines instead of ribbon
+- write up what was done
