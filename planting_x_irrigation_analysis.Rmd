@@ -482,44 +482,26 @@ ggplot(cld_yld_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL,
 
 This is an additional analysis added on 3 January 2022. Here we do the fit and get the bootstrap confidence intervals on the predicted values too.
 
-```{r, eval = FALSE, echo = FALSE}
-# This section currently not used.
-yld_vs_audpc_lmm <- lmer(YldKgHa ~ log1p(AUDPC) * PD + (1|YR/Rep) + (1|Strains), data = dat)
-
-xpred <- expm1(seq(log1p(0), log1p(107500), length.out = 101))
-pred_dat <- CJ(AUDPC = xpred, PD = ordered(1:3))
-
-pred_dat[, YldKgHa := predict(yld_vs_audpc_lmm, newdata = pred_dat, re.form = ~ 0)]
-
-boot_pred <- bootMer(yld_vs_audpc_lmm, function(fit) predict(fit, newdata = pred_dat, re.form = ~ 0), nsim = 999)
-boot_quant <- apply(boot_pred$t, 2, quantile, probs = c(0.025, 0.975))
-dimnames(boot_quant)[[1]] <- c('q025', 'q975')
-
-pred_dat <- cbind(pred_dat, t(boot_quant))
-
-ggplot(pred_dat, aes(x = AUDPC, y = YldKgHa, ymin = q025, ymax = q975, color = PD, fill = PD)) +
-  geom_ribbon(alpha = 0.25, color = NA) +
-  geom_line() +
-  scale_x_continuous(trans = 'log1p', breaks = 10^(1:5), labels = scales::comma) +
-  scale_color_viridis_d(name = 'planting date', labels = c('April','May','June')) +
-  theme(legend.position = c(0.15, 0.2)) +
-  guides(fill = 'none')
-```
-
-```{r}
+```{r reg and boot}
 yld_vs_audpc_lmm <- lmer(YldKgHa ~ log1p(AUDPC) * PD * Irr + (1|YR/Rep), data = dat)
 
-xpred <- expm1(seq(log1p(0), log1p(107500), length.out = 101))
-pred_dat <- CJ(AUDPC = xpred, PD = ordered(1:3), Irr = factor(c('Irr','Nonirr')))
+# Set ranges for predicted data based on range of observed data
+ranges <- dat[, as.list(range(AUDPC, na.rm = TRUE)), by = .(PD, Irr)] |>
+  setnames(old = c('V1','V2'), new = c('min','max'))
 
+# Generate predictors and get point estimate of predictions
+pred_dat <- ranges[, .(AUDPC = expm1(seq(log1p(min), log1p(max), length.out = 101))), by = .(PD, Irr)]
 pred_dat[, YldKgHa := predict(yld_vs_audpc_lmm, newdata = pred_dat, re.form = ~ 0)]
 
+# Bootstrap prediction intervals
 boot_pred <- bootMer(yld_vs_audpc_lmm, function(fit) predict(fit, newdata = pred_dat, re.form = ~ 0), nsim = 999)
 boot_quant <- apply(boot_pred$t, 2, quantile, probs = c(0.025, 0.975))
 dimnames(boot_quant)[[1]] <- c('q025', 'q975')
 
 pred_dat <- cbind(pred_dat, t(boot_quant))
+```
 
+```{r plot reg, echo = FALSE}
 ggplot(pred_dat, aes(x = AUDPC, y = YldKgHa, color = PD, fill = PD)) +
   geom_ribbon(aes(ymin = q025, ymax = q975), alpha = 0.25, color = NA) +
   geom_line() +
@@ -528,16 +510,44 @@ ggplot(pred_dat, aes(x = AUDPC, y = YldKgHa, color = PD, fill = PD)) +
   scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)')) +
   scale_x_continuous(trans = 'log1p', breaks = 10^(1:5), labels = scales::comma) +
   scale_color_viridis_d(name = 'planting date', labels = c('April','May','June')) +
-  theme(legend.position = c(0.15, 0.2)) +
+  theme(legend.position = c(0.15, 0.8)) +
   guides(fill = 'none')
 ```
 
-Summary statistics can be generated if needed.
+Here is an alternative of this plot with dotted lines for the 95% bootstrap instead of the shaded areas. It's the same otherwise.
 
-###FIXME
+```{r plot reg alternative, echo = FALSE}
+pred_dat_long <- melt(pred_dat, id.vars = c('PD','Irr','AUDPC'), variable.name = 'q', value.name = 'y')
 
-- anova table for the regression
-- make sure it's not bad to ignore genotype effect
-- change limits on predicted data to only cover the observed data min and max
-- maybe use dotted lines instead of ribbon
-- write up what was done
+
+ggplot(pred_dat_long, aes(x = AUDPC, color = PD, fill = PD)) +
+  geom_line(aes(y = y, linetype = q), size = 0.8) +
+  geom_point(data = dat, aes(y = YldKgHa), alpha = 0.75) +
+  facet_wrap(~ Irr, labeller = labeller(Irr = c(Irr = 'irrigated', Nonirr = 'non-irrigated'))) +
+  scale_linetype_manual(values = c(YldKgHa = 'solid', q025 = 'dashed', q975 = 'dashed')) +
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)')) +
+  scale_x_continuous(trans = 'log1p', breaks = 10^(1:5), labels = scales::comma) +
+  scale_color_viridis_d(name = 'planting date', labels = c('April','May','June')) +
+  theme(legend.position = c(0.15, 0.8)) +
+  guides(fill = 'none', linetype = 'none')
+```
+
+
+ANOVA table for the regression is below. Again we use Type III sum of squares and Kenward-Roger method for adjusting denominator degrees of freedom for the F-test.
+
+```{r anova reg, echo = FALSE}
+row_labels <- c('AUDPC', 'planting date', 'irrigation', 'AUDPC &times; planting date', 'AUDPC &times; irrigation', 'planting date &times; irrigation', 'AUDPC &times; planting date &times; irrigation ')
+
+anova(yld_vs_audpc_lmm, ddf = 'Kenward-Roger') |>
+  anova2kable(row_labels) |>
+  knitr::kable(caption = 'ANOVA table: regression of yield versus AUDPC')
+```
+
+
+Coefficient estimates for the fixed effects, showing that there is a negative relationship overall between disease and yield (though not strictly significant at p = 0.05 unfortunately), and an overall positive effect of irrigation on yield, but no interactions that are significant. So we cannot say statistically that the *relationship between* disease severity and yield depends on either of the treatments.
+
+```{r fixed eff reg, echo = FALSE}
+summary(yld_vs_audpc_lmm)$coefficients |>
+  signif(3) |>
+  knitr::kable(caption = 'coefficient estimates: regression of yield versus AUDPC')
+```
