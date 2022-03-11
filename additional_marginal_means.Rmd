@@ -1,0 +1,285 @@
+---
+title: "Additional marginal means tables"
+author: "Quentin D. Read"
+date: "3/10/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+This document has some additional estimates of marginal means in table and figure form, as requested by the in house reviewer.
+
+The reviewer requested the following:
+
+### Model 1 (genotype)
+
+-	Means separation of AUDPC for planting date
+-	Means separation of AUDPC for genotype
+-	Means separation of yield for planting date
+-	Means separation of yield for irrigation 
+-	Means separation of yield for genotype
+-	Means separation of yield for PD x genotype interaction
+
+### Model 2 (resistance)
+
+-	~~Means separation of AUDPC for planting date~~ (same as model 1)
+-	Means separation of AUDPC for resistance
+-	~~Means separation of yield for planting date~~ (same as model 1)
+-	~~Means separation of yield for irrigation~~ (same as model 1)
+-	Means separation of yield for resistance type
+-	Means separation of yield for PD x resistance type
+
+## Setup data and models
+
+This is the same as in the other document.
+
+```{r}
+library(data.table)
+library(ggplot2)
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(multcomp)
+
+windowsFonts(`fgbook` = windowsFont("Franklin Gothic Book"))
+th <- theme_bw(base_family = 'fgbook',
+               base_size = 14) + 
+  theme(panel.grid = element_blank(),
+        strip.background = element_blank())
+theme_set(th)
+
+dat <- fread('Datacom.csv', na.strings = '.', stringsAsFactors = TRUE)
+dat[, PD := ordered(PD, labels = c('April','May','June'))]
+dat[, MG := factor(MG)]
+dat[, Rep := factor(Rep)]
+dat[, Irr := factor(Irr, levels = c('Nonirr', 'Irr'))]
+dat[, resistance := factor(ifelse(Strains %in% c("60561121", "60561331", "DS880", "DT974290"), 'R', 'S'))]
+
+geno_names <- c("DT974290", "DS880", "60561121", "60561331", "LS980358", "Pharaoh", "6070242",  "DS97949")
+geno_fullnames <- c('DT97-4290','DS-880','DS6056-1-1-2-1','6056-1-3-3-1','LS98-0358','Pharaoh','DS6070-2-4-2','DS-97949')
+geno_lookup <- data.table(name = geno_names, full_name = geno_fullnames)
+
+dat[, Strains := factor(Strains, levels = levels(Strains), labels = geno_lookup$full_name[match(levels(Strains), geno_lookup$name)])]
+```
+
+Fit model 1, with genotype main effects.
+
+```{r}
+lmm_audpc_bystrain <- lmer(log1p(AUDPC) ~ PD * Irr * Strains + (1|YR/Rep), data = dat)
+lmm_yield_bystrain <- lmer(YldKgHa ~ PD * Irr * Strains + (1|YR/Rep), data = dat)
+```
+
+Fit model 2, with resistance group main effect.
+
+```{r}
+lmm_full_audpc <- lmer(log1p(AUDPC) ~ PD * Irr * resistance + (1|YR/Rep) + (1|Strains), data = dat)
+lmm_full_yield <- lmer(YldKgHa ~ PD * Irr * resistance + (1|YR/Rep) + (1|Strains), data = dat)
+```
+
+## Estimate marginal means
+
+Marginal means requested for model 1.
+
+```{r}
+emmeans1_audpc_pd <- emmeans(lmm_audpc_bystrain, ~ PD, mode = 'kenward-roger')
+emmeans1_audpc_genotype <- emmeans(lmm_audpc_bystrain, ~ Strains, mode = 'kenward-roger')
+emmeans1_yld_pd <- emmeans(lmm_yield_bystrain, ~ PD, mode = 'kenward-roger')
+emmeans1_yld_irr <- emmeans(lmm_yield_bystrain, ~ Irr, mode = 'kenward-roger')
+emmeans1_yld_genotype <- emmeans(lmm_yield_bystrain, ~ Strains, mode = 'kenward-roger')
+emmeans1_yld_pdxgeno <- emmeans(lmm_yield_bystrain, ~ PD + Strains, mode = 'kenward-roger')
+
+cld1_audpc_pd <- cld(emmeans1_audpc_pd, adjust = 'sidak', Letters = letters)
+cld1_audpc_genotype <- cld(emmeans1_audpc_genotype, adjust = 'sidak', Letters = letters)
+cld1_yld_pd <- cld(emmeans1_yld_pd, adjust = 'sidak', Letters = letters)
+cld1_yld_irr <- cld(emmeans1_yld_irr, adjust = 'sidak', Letters = letters)
+cld1_yld_genotype <- cld(emmeans1_yld_genotype, adjust = 'sidak', Letters = letters)
+cld1_yld_pdxgeno <- cld(emmeans1_yld_pdxgeno, adjust = 'sidak', Letters = letters)
+
+cols_to_transform <- c('emmean', 'lower.CL', 'upper.CL')
+
+cld1_audpc_pd[, cols_to_transform] <- expm1(cld1_audpc_pd[, cols_to_transform])
+cld1_audpc_genotype[, cols_to_transform] <- expm1(cld1_audpc_genotype[, cols_to_transform])
+```
+
+Marginal means requested for model 2.
+
+```{r}
+emmeans2_audpc_pd <- emmeans(lmm_full_audpc, ~ PD, mode = 'kenward-roger')
+emmeans2_audpc_resistance <- emmeans(lmm_full_audpc, ~ resistance, mode = 'kenward-roger')
+emmeans2_yld_pd <- emmeans(lmm_full_yield, ~ PD, mode = 'kenward-roger')
+emmeans2_yld_irr <- emmeans(lmm_full_yield, ~ Irr, mode = 'kenward-roger')
+emmeans2_yld_resistance <- emmeans(lmm_full_yield, ~ resistance, mode = 'kenward-roger')
+emmeans2_yld_pdxresistance <- emmeans(lmm_full_yield, ~ PD + resistance, mode = 'kenward-roger')
+
+cld2_audpc_pd <- cld(emmeans2_audpc_pd, adjust = 'sidak', Letters = letters)
+cld2_audpc_resistance <- cld(emmeans2_audpc_resistance, adjust = 'sidak', Letters = letters)
+cld2_yld_pd <- cld(emmeans2_yld_pd, adjust = 'sidak', Letters = letters)
+cld2_yld_irr <- cld(emmeans2_yld_irr, adjust = 'sidak', Letters = letters)
+cld2_yld_resistance <- cld(emmeans2_yld_resistance, adjust = 'sidak', Letters = letters)
+cld2_yld_pdxresistance <- cld(emmeans2_yld_pdxresistance, adjust = 'sidak', Letters = letters)
+
+cld2_audpc_pd[, cols_to_transform] <- expm1(cld2_audpc_pd[, cols_to_transform])
+cld2_audpc_resistance[, cols_to_transform] <- expm1(cld2_audpc_resistance[, cols_to_transform])
+```
+
+## Marginal means in table form
+
+```{r, echo = FALSE}
+var_lookup <- data.frame(short= c('PD','resistance','Irr','Strains'), long = c('planting date', 'resistance', 'irrigation', 'genotype'))
+
+cld2kable <- function(clddat, include_vars, table_name) {
+  clddat <- setDT(copy(as.data.frame(clddat)))
+  if ('resistance' %in% include_vars) clddat[, resistance := factor(resistance, levels = c('R','S'), labels = c('resistant', 'susceptible'))]
+  if ('Irr' %in% include_vars) clddat[, Irr := factor(Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))]
+  clddat[, .group := gsub(' ', '', .group)]
+  clddat[, c('SE', 'df') := NULL]
+  
+  col_labels <- c(var_lookup$long[match(include_vars, var_lookup$short)], 'marginal mean', 'lower 95%', 'upper 95%', '')
+  
+  setorderv(clddat, cols = include_vars)
+  
+  knitr::kable(clddat,
+               digits = 1,
+               col.names = col_labels,
+               caption = table_name)
+}
+```
+
+### Model 1 (by genotype)
+
+```{r, echo = FALSE}
+cld2kable(cld1_audpc_pd, c('PD'), 'Marginal means table: AUDPC by planting date')
+cld2kable(cld1_audpc_genotype, c('Strains'), 'Marginal means table: AUDPC by genotype')
+cld2kable(cld1_yld_pd, c('PD'), 'Marginal means table: Yield by planting date')
+cld2kable(cld1_yld_irr, c('Irr'), 'Marginal means table: Yield by irrigation')
+cld2kable(cld1_yld_genotype, c('Strains'), 'Marginal means table: Yield by genotype')
+cld2kable(cld1_yld_pdxgeno, c('PD', 'Strains'), 'Marginal means table: Yield by planting date &times; genotype')
+```
+
+
+### Model 2 (by resistance group)
+
+The ones that the reviewer marked in blue that are almost exactly the same between Model 1 and Model 2 are not included here.
+
+```{r, echo = FALSE}
+cld2kable(cld2_audpc_resistance, c('resistance'), 'Marginal means table: AUDPC by resistance')
+cld2kable(cld2_yld_resistance, c('resistance'), 'Marginal means table: Yield by resistance')
+cld2kable(cld2_yld_pdxresistance, c('PD', 'resistance'), 'Marginal means table: Yield by planting date &times; resistance')
+```
+
+## Marginal means in figure form
+
+### Model 1 (by genotype)
+
+```{r, echo = FALSE}
+facet_irr <- facet_wrap(~ irr_toplot)
+xaxis_pd <- scale_x_discrete(name = 'Planting Date', labels = c('April','May','June'))
+
+colors_res <- scale_color_manual(values = c('forestgreen', 'goldenrod'), labels = c('resistant', 'susceptible'))
+colors_pd <- scale_color_brewer(palette = 'Dark2')
+shape_mg <- scale_shape_discrete(name = 'maturity group', labels = c('IV', 'V'))
+grid_pd_irr <- facet_grid(PD ~ Irr, labeller = labeller(PD = c('1' = 'April', '2' = 'May', '3' = 'June')))
+```
+
+```{r plots by strain, echo = FALSE}
+ggplot(cld1_audpc_pd, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(width = 0.15, size = 0.75) +
+  geom_point(size = 2) + 
+  geom_text(nudge_x = 0.15, hjust = 0) +
+  xaxis_pd +
+  scale_y_log10(name = 'AUDPC', labels = scales::comma) +
+  theme(legend.position = 'none')
+
+cld1_audpc_genotype$Strains <- factor(cld1_audpc_genotype$Strains, levels = cld1_audpc_genotype$Strains[order(cld1_audpc_genotype$emmean)])
+
+ggplot(cld1_audpc_genotype, aes(x = Strains, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(width = 0.15, size = 0.75) +
+  geom_point(size = 2) + 
+  geom_text(nudge_x = 0.15, hjust = 0) +
+  scale_y_log10(name = 'AUDPC', labels = scales::comma) +
+  theme(legend.position = 'none',
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = 'Genotypes')
+
+ggplot(cld1_yld_pd, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(width = 0.15, size = 0.75) +
+  geom_point(size = 2) + 
+  geom_text(nudge_x = 0.15, hjust = 0) +
+  xaxis_pd +
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)'), labels = scales::comma) +
+  theme(legend.position = 'none')
+
+cld1_yld_irr$Irr <- factor(cld1_yld_irr$Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))
+
+ggplot(cld1_yld_irr, aes(x = Irr, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(width = 0.15, size = 0.75) +
+  geom_point(size = 2) + 
+  geom_text(nudge_x = 0.15, hjust = 0) +
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)'), labels = scales::comma) +
+  theme(legend.position = 'none', axis.title.x = element_blank())
+
+# Arrange all genotypes with the same order
+gen_order <- as.character(cld1_yld_genotype$Strains[order(cld1_yld_genotype$emmean)])
+
+cld1_yld_genotype$Strains <- factor(cld1_yld_genotype$Strains, levels = gen_order)
+
+ggplot(cld1_yld_genotype, aes(x = Strains, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(width = 0.15, size = 0.75) +
+  geom_point(size = 2) + 
+  geom_text(nudge_x = 0.15, hjust = 0) +
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)'), labels = scales::comma) +
+  theme(legend.position = 'none',
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = 'Genotypes')
+
+cld1_yld_pdxgeno$Strains <- factor(cld1_yld_pdxgeno$Strains, levels = gen_order)
+
+ggplot(cld1_yld_pdxgeno, aes(x = Strains, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(width = 0.15, size = 0.75) +
+  geom_point(size = 2) + 
+  geom_text(nudge_x = 0.15, hjust = 0) +
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)'), labels = scales::comma) +
+  theme(legend.position = 'none',
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = 'Genotypes') +
+  facet_wrap(~ PD, nrow = 3)
+```
+
+### Model 2 (by resistance group)
+
+Again, the ones marked in blue by the reviewer that will be essentially identical to Model 1 are not included here.
+
+```{r plots by resistance, echo = FALSE}
+ggplot(cld2_audpc_resistance, aes(x = resistance, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(width = 0.15, size = 0.75) +
+  geom_point(size = 2) + 
+  geom_text(nudge_x = 0.15, hjust = 0) +
+  scale_y_log10(name = 'AUDPC', labels = scales::comma) +
+  scale_x_discrete(labels = c('resistant', 'susceptible')) +
+  theme(legend.position = 'none',
+        axis.title.x = element_blank())
+
+ggplot(cld2_yld_resistance, aes(x = resistance, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(width = 0.15, size = 0.75) +
+  geom_point(size = 2) + 
+  geom_text(nudge_x = 0.15, hjust = 0) +
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)'), labels = scales::comma) +
+  scale_x_discrete(labels = c('resistant', 'susceptible')) +
+  theme(legend.position = 'none',
+        axis.title.x = element_blank())
+
+pd <- position_dodge(width = 0.5)
+
+ggplot(cld2_yld_pdxresistance, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group), group = interaction(PD, resistance))) +
+  geom_errorbar(width = 0.15, size = 0.75, aes(color = resistance), position = pd) +
+  geom_point(size = 2, position = pd) + 
+  geom_text(hjust = -.5, position = pd) +
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)'), labels = scales::comma) +
+  xaxis_pd +
+  theme(legend.position = c(0.8, 0.15), legend.title = element_blank()) +
+  colors_res 
+
+```
+
