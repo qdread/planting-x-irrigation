@@ -30,6 +30,8 @@ The reviewer requested the following:
 -	~~Means separation of yield for irrigation~~ (same as model 1)
 -	Means separation of yield for resistance type
 -	Means separation of yield for PD x resistance type
+- Means separation of yield for irrigation x resistance interaction (added 3/17)
+- Means separation of AUDPC for irrigation x resistance interaction (added 3/17)
 
 ## Setup data and models
 
@@ -112,6 +114,8 @@ emmeans2_yld_pd <- emmeans(lmm_full_yield, ~ PD, mode = 'kenward-roger')
 emmeans2_yld_irr <- emmeans(lmm_full_yield, ~ Irr, mode = 'kenward-roger')
 emmeans2_yld_resistance <- emmeans(lmm_full_yield, ~ resistance, mode = 'kenward-roger')
 emmeans2_yld_pdxresistance <- emmeans(lmm_full_yield, ~ PD + resistance, mode = 'kenward-roger')
+emmeans2_yld_irrxresistance <- emmeans(lmm_full_yield, ~ Irr + resistance, mode = 'kenward-roger')
+emmeans2_audpc_irrxresistance <- emmeans(lmm_full_audpc, ~ Irr + resistance, mode = 'kenward-roger')
 
 cld2_audpc_pd <- cld(emmeans2_audpc_pd, adjust = 'sidak', Letters = letters)
 cld2_audpc_resistance <- cld(emmeans2_audpc_resistance, adjust = 'sidak', Letters = letters)
@@ -119,9 +123,12 @@ cld2_yld_pd <- cld(emmeans2_yld_pd, adjust = 'sidak', Letters = letters)
 cld2_yld_irr <- cld(emmeans2_yld_irr, adjust = 'sidak', Letters = letters)
 cld2_yld_resistance <- cld(emmeans2_yld_resistance, adjust = 'sidak', Letters = letters)
 cld2_yld_pdxresistance <- cld(emmeans2_yld_pdxresistance, adjust = 'sidak', Letters = letters)
+cld2_yld_irrxresistance <- cld(emmeans2_yld_irrxresistance, adjust = 'sidak', Letters = letters)
+cld2_audpc_irrxresistance <- cld(emmeans2_audpc_irrxresistance, adjust = 'sidak', Letters = letters)
 
 cld2_audpc_pd[, cols_to_transform] <- expm1(cld2_audpc_pd[, cols_to_transform])
 cld2_audpc_resistance[, cols_to_transform] <- expm1(cld2_audpc_resistance[, cols_to_transform])
+cld2_audpc_irrxresistance[, cols_to_transform] <- expm1(cld2_audpc_irrxresistance[, cols_to_transform])
 ```
 
 ## Marginal means in table form
@@ -167,6 +174,8 @@ The ones that the reviewer marked in blue that are almost exactly the same betwe
 cld2kable(cld2_audpc_resistance, c('resistance'), 'Marginal means table: AUDPC by resistance')
 cld2kable(cld2_yld_resistance, c('resistance'), 'Marginal means table: Yield by resistance')
 cld2kable(cld2_yld_pdxresistance, c('PD', 'resistance'), 'Marginal means table: Yield by planting date &times; resistance')
+cld2kable(cld2_yld_irrxresistance, c('Irr', 'resistance'), 'Marginal means table: Yield by irrigation &times; resistance')
+cld2kable(cld2_audpc_irrxresistance, c('Irr', 'resistance'), 'Marginal means table: AUDPC by irrigation &times; resistance')
 ```
 
 ## Marginal means in figure form
@@ -281,5 +290,24 @@ ggplot(cld2_yld_pdxresistance, aes(x = PD, y = emmean, ymin = lower.CL, ymax = u
   theme(legend.position = c(0.8, 0.15), legend.title = element_blank()) +
   colors_res 
 
+cld2_yld_irrxresistance$Irr <- factor(cld2_yld_irrxresistance$Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))
+
+ggplot(cld2_yld_irrxresistance, aes(x = Irr, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group), group = interaction(Irr, resistance))) +
+  geom_errorbar(width = 0.15, size = 0.75, aes(color = resistance), position = pd) +
+  geom_point(size = 2, position = pd) + 
+  geom_text(hjust = -.5, position = pd) +
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)'), labels = scales::comma) +
+  theme(legend.position = c(0.8, 0.9), legend.title = element_blank(), axis.title.x = element_blank()) +
+  colors_res 
+
+cld2_audpc_irrxresistance$Irr <- factor(cld2_audpc_irrxresistance$Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))
+
+ggplot(cld2_audpc_irrxresistance, aes(x = Irr, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group), group = interaction(Irr, resistance))) +
+  geom_errorbar(width = 0.15, size = 0.75, aes(color = resistance), position = pd) +
+  geom_point(size = 2, position = pd) + 
+  geom_text(hjust = -.5, position = pd) +
+  scale_y_log10(name = 'AUDPC', labels = scales::comma) +
+  theme(legend.position = c(0.85, 0.15), legend.title = element_blank(), axis.title.x = element_blank()) +
+  colors_res 
 ```
 
