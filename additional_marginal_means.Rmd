@@ -311,3 +311,38 @@ ggplot(cld2_audpc_irrxresistance, aes(x = Irr, y = emmean, ymin = lower.CL, ymax
   colors_res 
 ```
 
+### Additional figure
+
+Figure added on 24 March. This figure includes marginal means of yield for all combinations of genotype, planting date, and irrigation. Colors of the bars indicate irrigation treatment. Asterisks indicate whether the difference between irrigated and non-irrigated is significant (p < 0.05 after Sidak adjustment for multiple comparisons) for the given genotype on the given planting date.
+
+```{r, echo = FALSE, fig.height = 7}
+# Arrange all genotypes with the same order
+gen_order <- as.character(cld1_yld_genotype$Strains[order(cld1_yld_genotype$emmean)])
+
+emmeans1_yld_pdxirrxgeno <- emmeans(lmm_yield_bystrain, ~ Irr | PD + Strains, mode = 'kenward-roger')
+cld1_yld_pdxirrxgeno <- cld(emmeans1_yld_pdxirrxgeno, adjust = 'sidak', Letters = letters)
+
+cld1_yld_pdxirrxgeno$Strains <- factor(cld1_yld_pdxirrxgeno$Strains, levels = gen_order)
+cld1_yld_pdxirrxgeno$Irr <- factor(cld1_yld_pdxirrxgeno$Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))
+
+pd <- position_dodge(width = 0.5)
+colors_irr <- scale_color_manual(name = '', values = c('slateblue', 'indianred'))
+
+# Asterisks for each irrigation comparison
+dat_cld <- copy(cld1_yld_pdxirrxgeno)
+setDT(dat_cld)
+signif_cld <- dat_cld[, .(signif = 'b' %in% trimws(.group), y_pos = max(upper.CL) + 500), by = .(PD, Strains)]
+signif_cld[, symbol := ifelse(signif, '*', '')]
+
+ggplot(cld1_yld_pdxirrxgeno, aes(x = Strains, y = emmean, label = gsub(' ', '', .group))) +
+  geom_errorbar(width = 0.15, size = 0.75, aes(color = Irr, group = interaction(Strains, Irr), ymin = lower.CL, ymax = upper.CL), position = pd) +
+  geom_point(aes(group = interaction(Strains, Irr)), size = 2, position = pd) + 
+  geom_text(data = signif_cld, aes(label = symbol, y = y_pos), size = 8) +
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)'), labels = scales::comma, limits = c(0, 5500)) +
+  theme(legend.position = c(0.25, 0.95),
+        legend.direction = 'horizontal',
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = 'Genotypes') +
+  facet_wrap(~ PD, nrow = 3) + colors_irr
+```
+
