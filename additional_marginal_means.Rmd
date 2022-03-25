@@ -346,3 +346,29 @@ ggplot(cld1_yld_pdxirrxgeno, aes(x = Strains, y = emmean, label = gsub(' ', '', 
   facet_wrap(~ PD, nrow = 3) + colors_irr
 ```
 
+### Another additional figure
+
+This figure added 25 March. Main effect of irrigation on AUDPC. (Given in table and figure form.)
+
+```{r}
+emmeans1_audpc_irr <- emmeans(lmm_audpc_bystrain, ~ Irr, mode = 'kenward-roger')
+cld1_audpc_irr <- cld(emmeans1_audpc_irr, adjust = 'sidak', Letters = letters)
+
+cols_to_transform <- c('emmean', 'lower.CL', 'upper.CL')
+
+cld1_audpc_irr[, cols_to_transform] <- expm1(cld1_audpc_irr[, cols_to_transform])
+```
+
+```{r, echo = FALSE}
+cld2kable(cld1_audpc_irr, c('Irr'), 'Marginal means table: AUDPC by irrigation')
+
+cld1_audpc_irr$Irr <- factor(cld1_audpc_irr$Irr, levels = c('Irr', 'Nonirr'), labels = c('irrigated', 'non-irrigated'))
+
+ggplot(cld1_audpc_irr, aes(x = Irr, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(width = 0.15, size = 0.75) +
+  geom_point(size = 2) + 
+  geom_text(nudge_x = 0.15, hjust = 0) +
+  scale_y_log10(name = 'AUDPC', labels = scales::comma) +
+  theme(legend.position = 'none', axis.title.x = element_blank())
+```
+
