@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 
 # Change log
 
+- 29 Mar 2022: make some changes to address reviewer comments, and write all figures to files
 - 03 Jan 2022: update formatting of all figures based on checklist
 - 22 Dec 2021: add analysis where resistant and susceptible are pooled
 - 20 Dec 2021: convert planting date to an ordered factor
@@ -38,6 +39,8 @@ library(lmerTest)
 library(emmeans)
 library(multcomp)
 
+fig_path <- 'C:/Users/qdread/onedrive_usda/ars_projects/mengistu/project2/figs'
+
 windowsFonts(`fgbook` = windowsFont("Franklin Gothic Book"))
 th <- theme_bw(base_family = 'fgbook',
                base_size = 14) + 
@@ -53,7 +56,7 @@ dat[, Irr := factor(Irr, levels = c('Nonirr', 'Irr'))]
 dat[, resistance := factor(ifelse(Strains %in% c("60561121", "60561331", "DS880", "DT974290"), 'R', 'S'))]
 
 geno_names <- c("DT974290", "DS880", "60561121", "60561331", "LS980358", "Pharaoh", "6070242",  "DS97949")
-geno_fullnames <- c('DT97-4290','DS-880','DS6056-1-1-2-1','6056-1-3-3-1','LS98-0358','Pharaoh','DS6070-2-4-2','DS-97949')
+geno_fullnames <- c('DT97-4290','DS-880','DS6056-1-1-2-1','6056-1-3-3-1','LS98-0358','Pharaoh','DS6070-2-4-2','DS4-SCN05')
 geno_lookup <- data.table(name = geno_names, full_name = geno_fullnames)
 ```
 
@@ -79,13 +82,19 @@ p <- ggplot(dat, aes(x = PD, group = interaction(PD, resistance), fill = resista
 p + geom_boxplot(aes(y = FinalCFU), position = position_dodge(preserve = 'single')) +
   scale_y_log10(name = 'Final CFU', labels = scales::comma) 
 
+ggsave(file.path(fig_path, '01_cfu_treatmentxyear_boxplot_logscale.png'), height = 5, width = 7, dpi = 400)
+
 p + geom_boxplot(aes(y = AUDPC), position = position_dodge(preserve = 'single')) +
   theme(legend.position = 'none') +
   scale_y_log10(labels = scales::comma) 
 
+ggsave(file.path(fig_path, '02_audpc_treatmentxyear_boxplot_logscale.png'), height = 5, width = 7, dpi = 400)
+
 p + geom_boxplot(aes(y = YldKgHa), position = position_dodge(preserve = 'single')) +
   theme(legend.position = 'none') +
   scale_y_continuous(parse(text = 'Yield~(kg~ha^-1)'))
+
+ggsave(file.path(fig_path, '03_yield_treatmentxyear_boxplot.png'), height = 5, width = 7, dpi = 400)
 ```
 
 ## Fitting models
@@ -177,6 +186,8 @@ ggplot(cld_cfu, aes(x = PD, group = interaction(PD, resistance), y = emmean, ymi
   scale_color_manual(values = c('forestgreen', 'goldenrod')) +
   theme(legend.position = 'none')
 
+ggsave(file.path(fig_path, '04_cfu_alltreatments_CLDplot.png'), height = 5, width = 7, dpi = 400)
+
 ggplot(cld_audpc, aes(x = PD, group = interaction(PD, resistance), y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
   geom_errorbar(width = 0.15, size = 0.75, position = position_dodge(width = 0.2), aes(color = resistance)) + 
   geom_point(position = position_dodge(width = 0.2)) + 
@@ -186,6 +197,8 @@ ggplot(cld_audpc, aes(x = PD, group = interaction(PD, resistance), y = emmean, y
   scale_color_manual(values = c('forestgreen', 'goldenrod'), labels = c('resistant', 'susceptible')) +
   theme(legend.position = c(0.36, 0.15), legend.title = element_blank())
 
+ggsave(file.path(fig_path, '05_audpc_alltreatments_CLDplot.png'), height = 5, width = 7, dpi = 400)
+
 ggplot(cld_yld, aes(x = PD, group = interaction(PD, resistance), y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
   geom_errorbar(width = 0.15, size = 0.75, position = position_dodge(width = 0.2), aes(color = resistance)) + 
   geom_point(position = position_dodge(width = 0.2)) + 
@@ -194,6 +207,8 @@ ggplot(cld_yld, aes(x = PD, group = interaction(PD, resistance), y = emmean, ymi
   scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)')) +
   scale_color_manual(values = c('forestgreen', 'goldenrod'), labels = c('resistant', 'susceptible')) +
   theme(legend.position = c(0.36, 0.15), legend.title = element_blank())
+
+ggsave(file.path(fig_path, '06_yld_alltreatments_CLDplot.png'), height = 5, width = 7, dpi = 400)
 ```
 
 # Initial interpretation
@@ -344,12 +359,14 @@ ggplot(cld_cfu_bystrain_dat, aes(x = Strains, y = emmean, ymin = lower.CL, ymax 
   geom_text(nudge_x = 0.15, hjust = 0) +
   colors_res + grid_pd_irr + shape_mg +
   scale_y_log10(name = 'Final CFU', labels = scales::comma) +
-  theme(legend.position = c(0.25, 0.06), legend.direction = 'horizontal', legend.spacing.y = unit(-3, 'mm'),
+  theme(legend.position = c(0.75, 0.06), legend.direction = 'horizontal', legend.spacing.y = unit(-3, 'mm'),
         legend.title = element_text(size = rel(0.7)),
         legend.text = element_text(size = rel(0.6)),
         legend.background = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = 'Genotypes') 
+
+ggsave(file.path(fig_path, '07_cfu_treatmentxgenotype_CLDplot.png'), height = 9, width = 7, dpi = 400)
 
 ggplot(cld_audpc_bystrain_dat, aes(x = Strains, y = emmean, ymin = lower.CL, ymax = upper.CL, shape = MG, label = gsub(' ', '', .group))) +
   geom_errorbar(aes(color = resistance), width = 0.15, size = 0.75) + 
@@ -364,6 +381,8 @@ ggplot(cld_audpc_bystrain_dat, aes(x = Strains, y = emmean, ymin = lower.CL, yma
         axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = 'Genotypes') 
 
+ggsave(file.path(fig_path, '08_audpc_treatmentxgenotype_CLDplot.png'), height = 9, width = 7, dpi = 400)
+
 ggplot(cld_yield_bystrain_dat, aes(x = Strains, y = emmean, ymin = lower.CL, ymax = upper.CL, shape = MG, label = gsub(' ', '', .group))) +
   geom_errorbar(aes(color = resistance), width = 0.15, size = 0.75) + 
   geom_point(size = 2) + 
@@ -376,6 +395,8 @@ ggplot(cld_yield_bystrain_dat, aes(x = Strains, y = emmean, ymin = lower.CL, yma
         legend.background = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = 'Genotypes') 
+
+ggsave(file.path(fig_path, '09_yld_treatmentxgenotype_CLDplot.png'), height = 9, width = 7, dpi = 400)
 ```
 
 ## Tables of marginal means by genotype
@@ -457,7 +478,9 @@ ggplot(cld_cfu_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL,
   geom_text(aes(group = Irr), hjust = -1, position = position_dodge(width = 0.4)) +
   colors_irr + xscale_pd + 
   scale_y_log10(name = 'Final CFU', labels = scales::comma, limits = c(1, 59999)) +
-  theme(legend.position = c(0.15, 0.2), legend.background = element_blank())
+  theme(legend.position = c(0.2, 0.2), legend.background = element_blank())
+
+ggsave(file.path(fig_path, '10_cfu_PDxIrr_CLDplot.png'), height = 4, width = 5, dpi = 400)
 
 ggplot(cld_audpc_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
   geom_errorbar(aes(color = Irr), width = 0.15, size = 0.75, position = position_dodge(width = 0.4)) + 
@@ -465,7 +488,9 @@ ggplot(cld_audpc_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.C
   geom_text(aes(group = Irr), hjust = -1, position = position_dodge(width = 0.4)) +
   colors_irr + xscale_pd + 
   scale_y_log10(name = 'AUDPC', labels = scales::comma) +
-  theme(legend.position = c(0.15, 0.2), legend.background = element_blank())
+  theme(legend.position = c(0.2, 0.2), legend.background = element_blank())
+
+ggsave(file.path(fig_path, '11_audpc_PDxIrr_CLDplot.png'), height = 4, width = 5, dpi = 400)
 
 ggplot(cld_yld_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
   geom_errorbar(aes(color = Irr), width = 0.15, size = 0.75, position = position_dodge(width = 0.4)) + 
@@ -473,7 +498,9 @@ ggplot(cld_yld_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL,
   geom_text(aes(group = Irr), hjust = -1, position = position_dodge(width = 0.4)) +
   colors_irr + xscale_pd + 
   scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)')) +
-  theme(legend.position = c(0.15, 0.9), legend.background = element_blank())
+  theme(legend.position = c(0.2, 0.9), legend.background = element_blank())
+
+ggsave(file.path(fig_path, '12_yld_PDxIrr_CLDplot.png'), height = 4, width = 5, dpi = 400)
 ```
 
 \newpage
@@ -512,6 +539,8 @@ ggplot(pred_dat, aes(x = AUDPC, y = YldKgHa, color = PD, fill = PD)) +
   scale_color_viridis_d(name = 'planting date', labels = c('April','May','June')) +
   theme(legend.position = c(0.15, 0.8)) +
   guides(fill = 'none')
+
+ggsave(file.path(fig_path, '13_regressionplot_shadedareas.png'), height = 5, width = 7, dpi = 400)
 ```
 
 Here is an alternative of this plot with dotted lines for the 95% bootstrap instead of the shaded areas. It's the same otherwise.
@@ -530,6 +559,8 @@ ggplot(pred_dat_long, aes(x = AUDPC, color = PD, fill = PD)) +
   scale_color_viridis_d(name = 'planting date', labels = c('April','May','June')) +
   theme(legend.position = c(0.15, 0.8)) +
   guides(fill = 'none', linetype = 'none')
+
+ggsave(file.path(fig_path, '14_regressionplot_dottedlines.png'), height = 5, width = 7, dpi = 400)
 ```
 
 
