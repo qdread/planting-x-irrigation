@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 
 # Change log
 
+- 04 May 2022: include formatting for figure 7 in manuscript
 - 29 Mar 2022: make some changes to address reviewer comments, and write all figures to files
 - 03 Jan 2022: update formatting of all figures based on checklist
 - 22 Dec 2021: add analysis where resistant and susceptible are pooled
@@ -582,3 +583,37 @@ summary(yld_vs_audpc_lmm)$coefficients |>
   signif(3) |>
   knitr::kable(caption = 'coefficient estimates: regression of yield versus AUDPC')
 ```
+
+
+## Formatted figure 7 for manuscript
+
+Figures 1-6 are in the other notebook. Figure 7 contains plots 11 and 12. Reorient as vertical.
+
+```{r}
+library(cowplot)
+
+no_x <- theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), axis.title.x = element_blank())
+
+f7_top <- ggplot(cld_audpc_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(aes(color = Irr), width = 0.15, size = 0.75, position = position_dodge(width = 0.4)) + 
+  geom_point(aes(group = Irr), size = 2, position = position_dodge(width = 0.4)) + 
+  geom_text(position = position_dodge(width = 0.6), aes(group = Irr, hjust = ifelse(Irr == 'irrigated', 1.3, -0.4)), size = 2.8) +
+  colors_irr + xscale_pd + 
+  scale_y_log10(name = 'AUDPC', labels = scales::comma) +
+  theme(legend.position = c(0.2, 0.2), legend.background = element_blank())
+
+f7_bottom <- ggplot(cld_yld_pooled, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(aes(color = Irr), width = 0.15, size = 0.75, position = position_dodge(width = 0.4)) + 
+  geom_point(aes(group = Irr), size = 2, position = position_dodge(width = 0.4)) + 
+  geom_text(position = position_dodge(width = 0.6), aes(group = Irr, hjust = ifelse(Irr == 'irrigated', 1.3, -0.4)), size = 2.8) +
+  colors_irr + xscale_pd + 
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)')) +
+  theme(legend.position = c(0.2, 0.9), legend.background = element_blank())
+
+f7_combined <- plot_grid(f7_top + no_x + theme(plot.margin = unit(c(2, 2, 2, 0), 'mm'), legend.position = c(0.8, 0.2), legend.text = element_text(size = 7)), 
+                         f7_bottom + theme(plot.margin = unit(c(0, 2, 2, 2), 'mm'), legend.position = 'none'), 
+                         nrow = 2, align = 'v', rel_heights = c(1, 1.1), labels = c('a', 'b'), label_fontfamily = 'fgbook')
+
+ggsave(file.path(fig_path, 'figure7.png'), f7_combined, height = 6, width = 3.25, dpi = 400, units = 'in')
+```
+

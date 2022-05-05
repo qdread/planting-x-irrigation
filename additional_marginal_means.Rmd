@@ -9,6 +9,11 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
+## Version history
+
+- 04 May: additional formatting for manuscript
+- 10 Mar: first version
+
 This document has some additional estimates of marginal means in table and figure form, as requested by the in house reviewer.
 
 The reviewer requested the following:
@@ -32,6 +37,7 @@ The reviewer requested the following:
 -	Means separation of yield for PD x resistance type
 - Means separation of yield for irrigation x resistance interaction (added 3/17)
 - Means separation of AUDPC for irrigation x resistance interaction (added 3/17)
+- Means separation of AUDPC for PD x resistance type (added 5/4)
 
 ## Setup data and models
 
@@ -119,6 +125,7 @@ emmeans2_yld_resistance <- emmeans(lmm_full_yield, ~ resistance, mode = 'kenward
 emmeans2_yld_pdxresistance <- emmeans(lmm_full_yield, ~ PD + resistance, mode = 'kenward-roger')
 emmeans2_yld_irrxresistance <- emmeans(lmm_full_yield, ~ Irr + resistance, mode = 'kenward-roger')
 emmeans2_audpc_irrxresistance <- emmeans(lmm_full_audpc, ~ Irr + resistance, mode = 'kenward-roger')
+emmeans2_audpc_pdxresistance <- emmeans(lmm_full_audpc, ~ PD + resistance, mode = 'kenward-roger')
 
 cld2_audpc_pd <- cld(emmeans2_audpc_pd, adjust = 'sidak', Letters = letters)
 cld2_audpc_resistance <- cld(emmeans2_audpc_resistance, adjust = 'sidak', Letters = letters)
@@ -128,10 +135,12 @@ cld2_yld_resistance <- cld(emmeans2_yld_resistance, adjust = 'sidak', Letters = 
 cld2_yld_pdxresistance <- cld(emmeans2_yld_pdxresistance, adjust = 'sidak', Letters = letters)
 cld2_yld_irrxresistance <- cld(emmeans2_yld_irrxresistance, adjust = 'sidak', Letters = letters)
 cld2_audpc_irrxresistance <- cld(emmeans2_audpc_irrxresistance, adjust = 'sidak', Letters = letters)
+cld2_audpc_pdxresistance <- cld(emmeans2_audpc_pdxresistance, adjust = 'sidak', Letters = letters)
 
 cld2_audpc_pd[, cols_to_transform] <- expm1(cld2_audpc_pd[, cols_to_transform])
 cld2_audpc_resistance[, cols_to_transform] <- expm1(cld2_audpc_resistance[, cols_to_transform])
 cld2_audpc_irrxresistance[, cols_to_transform] <- expm1(cld2_audpc_irrxresistance[, cols_to_transform])
+cld2_audpc_pdxresistance[, cols_to_transform] <- expm1(cld2_audpc_pdxresistance[, cols_to_transform])
 ```
 
 ## Marginal means in table form
@@ -179,6 +188,7 @@ cld2kable(cld2_yld_resistance, c('resistance'), 'Marginal means table: Yield by 
 cld2kable(cld2_yld_pdxresistance, c('PD', 'resistance'), 'Marginal means table: Yield by planting date &times; resistance')
 cld2kable(cld2_yld_irrxresistance, c('Irr', 'resistance'), 'Marginal means table: Yield by irrigation &times; resistance')
 cld2kable(cld2_audpc_irrxresistance, c('Irr', 'resistance'), 'Marginal means table: AUDPC by irrigation &times; resistance')
+cld2kable(cld2_audpc_pdxresistance, c('PD', 'resistance'), 'Marginal means table: AUDPC by planting date &times; resistance')
 ```
 
 ## Marginal means in figure form
@@ -346,6 +356,17 @@ ggplot(cld2_audpc_irrxresistance, aes(x = Irr, y = emmean, ymin = lower.CL, ymax
   colors_res 
 
 ggsave(file.path(fig_path, 'additional11_audpc_Irrxresistance_CLDplot.png'), height = 4, width = 5, dpi = 400)
+
+ggplot(cld2_audpc_pdxresistance, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group), group = interaction(PD, resistance))) +
+  geom_errorbar(width = 0.15, size = 0.75, aes(color = resistance), position = pd) +
+  geom_point(size = 2, position = pd) + 
+  geom_text(position = position_dodge(width = 0.55), aes(hjust = ifelse(resistance == 'R', 1.3, -0.4))) +
+  scale_y_log10(name = 'AUDPC', labels = scales::comma) +
+  xaxis_pd +
+  theme(legend.position = c(0.8, 0.15), legend.title = element_blank()) +
+  colors_res 
+
+ggsave(file.path(fig_path, 'additional11b_audpc_PDxresistance_CLDplot.png'), height = 4, width = 5, dpi = 400)
 ```
 
 ### Additional figure
@@ -441,5 +462,160 @@ ggplot(cld1_yld_geno_bypd, aes(x = Strains, y = emmean, ymin = lower.CL, ymax = 
   facet_wrap(~ PD, nrow = 3)
 
 ggsave(file.path(fig_path, 'additional14_yld_PDxgenotype_CLDplot_colorsandshapes.png'), height = 8, width = 5, dpi = 400)
+```
+
+## MS figures
+
+```{r}
+library(cowplot)
+
+no_x <- theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), axis.title.x = element_blank())
+```
+
+### Figure 2
+
+Figure 2 in the MS consists of plot additional01 and plot additional03 above.
+
+```{r}
+f2_top <- ggplot(cld1_audpc_pd, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(width = 0.15, size = 0.75) +
+  geom_point(size = 2) + 
+  geom_text(nudge_x = 0.15, hjust = 0) +
+  xaxis_pd +
+  scale_y_log10(name = 'AUDPC', labels = scales::comma) +
+  theme(legend.position = 'none')
+
+f2_bottom <- ggplot(cld1_yld_pd, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(width = 0.15, size = 0.75) +
+  geom_point(size = 2) + 
+  geom_text(nudge_x = 0.15, hjust = 0) +
+  xaxis_pd +
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)'), labels = scales::comma) +
+  theme(legend.position = 'none')
+
+f2_combined <- plot_grid(f2_top + no_x + theme(plot.margin = unit(c(2, 2, 2, 0), 'mm')), f2_bottom + theme(plot.margin = unit(c(0, 2, 2, 2), 'mm')), nrow = 2, align = 'v', rel_heights = c(1, 1.1), labels = c('a', 'b'), label_fontfamily = 'fgbook')
+```
+
+### Figure 3
+
+Figure 3 in the MS consists of plot additional13 and plot additional04 above.
+
+```{r}
+f3_top <- ggplot(cld1_audpc_irr, aes(x = Irr, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(width = 0.15, size = 0.75) +
+  geom_point(size = 2) + 
+  geom_text(nudge_x = 0.15, hjust = 0) +
+  scale_y_log10(name = 'AUDPC', labels = scales::comma) +
+  theme(legend.position = 'none', axis.title.x = element_blank())
+
+f3_bottom <- ggplot(cld1_yld_irr, aes(x = Irr, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(width = 0.15, size = 0.75) +
+  geom_point(size = 2) + 
+  geom_text(nudge_x = 0.15, hjust = 0) +
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)'), labels = scales::comma) +
+  theme(legend.position = 'none', axis.title.x = element_blank())
+
+f3_combined <- plot_grid(f3_top + no_x + theme(plot.margin = unit(c(2, 2, 2, 0), 'mm')), f3_bottom + theme(plot.margin = unit(c(0, 2, 2, 2), 'mm')), nrow = 2, align = 'v', rel_heights = c(1, 1.07), labels = c('a', 'b'), label_fontfamily = 'fgbook')
+```
+
+### Figure 4
+
+Figure 4 in the MS consists of plot additional02 and plot additional05 above. These are wider plots so I think it is better to put them in a horizontal orientation. Also correct the genotype name 6056-1-3-3-1 to DS6056-1-3-3-1.
+
+```{r}
+cld1_audpc_genotype[, Strains := forcats::fct_recode(Strains, "DS6056-1-3-3-1" = "6056-1-3-3-1")]
+cld1_yld_genotype[, Strains := forcats::fct_recode(Strains, "DS6056-1-3-3-1" = "6056-1-3-3-1")]
+
+f4_top <- ggplot(cld1_audpc_genotype, aes(x = Strains, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(width = 0.15, size = 0.75, aes(color = resistance)) +
+  geom_point(size = 2, aes(shape = MG)) + 
+  geom_text(nudge_x = 0.15, hjust = 0) +
+  scale_y_log10(name = 'AUDPC', labels = scales::comma) +
+  theme(legend.position = c(0.72, 0.2),
+        legend.direction = 'horizontal', legend.box = 'vertical',
+        legend.text = element_text(size = 7.5), legend.title = element_text(size = 7.5),
+        legend.spacing.y = unit(-3, 'mm'), legend.background = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  colors_res + shape_mg +
+  labs(x = 'Genotypes')
+
+f4_bottom <- ggplot(cld1_yld_genotype, aes(x = Strains, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group))) +
+  geom_errorbar(width = 0.15, size = 0.75, aes(color = resistance)) +
+  geom_point(size = 2, aes(shape = MG)) + 
+  geom_text(nudge_x = 0.15, hjust = 0) +
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)'), labels = scales::comma) +
+  theme(legend.position = c(0.28, 0.84),
+        legend.direction = 'horizontal', legend.box = 'vertical',
+        legend.text = element_text(size = 6), legend.title = element_text(size = 6),
+        legend.spacing.y = unit(-3, 'mm'), legend.background = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  colors_res + shape_mg +
+  labs(x = 'Genotypes')
+
+f4_combined <- plot_grid(f4_top + theme(legend.position = c(0.28, 0.83)), f4_bottom + theme(legend.position = 'none'), nrow = 2, align = 'v', labels = c('a', 'b'), label_fontfamily = 'fgbook')
+
+f4_combined_horizontal <- plot_grid(f4_top + theme(legend.position = 'none'), f4_bottom + theme(legend.position = c(0.4, 0.87)), nrow = 1, align = 'h', labels = c('a', 'b'), label_fontfamily = 'fgbook')
+```
+
+### Figure 5
+
+Figure 5 in the MS is just plot additional14. However we still need to recode the factor, change some formatting, and add the a b and c labels.
+
+```{r}
+cld1_yld_geno_bypd[, Strains := forcats::fct_recode(Strains, "DS6056-1-3-3-1" = "6056-1-3-3-1")]
+
+f5 <- ggplot(cld1_yld_geno_bypd, aes(x = Strains, y = emmean)) +
+  geom_errorbar(width = 0.15, size = 0.75, aes(color = resistance, ymin = lower.CL, ymax = upper.CL)) +
+  geom_point(size = 2, aes(shape = MG)) + 
+  geom_text(nudge_x = 0.15, hjust = 0, size = 2.8, aes(label = gsub(' ', '', .group))) +
+  geom_text(data = data.frame(Strains = -Inf, emmean = Inf, lab = letters[1:3], PD = factor(c('April','May','June'))), aes(label=lab), 
+            family = 'fgbook', fontface = 'bold', hjust = -0.75, vjust = 1.2) +
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)'), labels = scales::comma, limits = c(0, 4000)) +
+  theme(legend.box = 'vertical', legend.position = c(0.5, 0.06), legend.direction = 'horizontal',
+        legend.text = element_text(size = 6.5), legend.title = element_text(size = 6.5),
+        legend.spacing.y = unit(-3, 'mm'), legend.background = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = 'Genotypes') +
+  shape_mg + colors_res +
+  facet_wrap(~ PD, nrow = 3)
+
+```
+
+### Figure 6
+
+Figure 6 is more problematic. The right hand side of it is plot additional09, whereas the left hand side of it is actually a cut off version of one of the irrigation halves of the panel plot 05 in the main figures document. I think it is necessary to create a new figure for the left hand side (then reorient to vertical). It is now added above as additional11b as well as here as f6_top.
+
+```{r}
+pd <- position_dodge(width = 0.5)
+
+f6_top <- ggplot(cld2_audpc_pdxresistance, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group), group = interaction(PD, resistance))) +
+  geom_errorbar(width = 0.15, size = 0.75, aes(color = resistance), position = pd) +
+  geom_point(size = 2, position = pd) + 
+  geom_text(position = position_dodge(width = 0.6), aes(hjust = ifelse(resistance == 'R', 1.3, -0.4)), size = 2.8) +
+  scale_y_log10(name = 'AUDPC', labels = scales::comma) +
+  xaxis_pd +
+  theme(legend.position = c(0.8, 0.15), legend.title = element_blank()) +
+  colors_res 
+
+f6_bottom <- ggplot(cld2_yld_pdxresistance, aes(x = PD, y = emmean, ymin = lower.CL, ymax = upper.CL, label = gsub(' ', '', .group), group = interaction(PD, resistance))) +
+  geom_errorbar(width = 0.15, size = 0.75, aes(color = resistance), position = pd) +
+  geom_point(size = 2, position = pd) + 
+  geom_text(position = position_dodge(width = 0.6), aes(hjust = ifelse(resistance == 'R', 1.3, -0.4)), size = 2.8) +
+  scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)'), labels = scales::comma) +
+  xaxis_pd +
+  theme(legend.position = c(0.75, 0.15), legend.title = element_blank(), legend.text = element_text(size = rel(0.5)), legend.background = element_blank()) +
+  colors_res 
+
+f6_combined <- plot_grid(f6_top + no_x + theme(plot.margin = unit(c(2, 2, 2, 0), 'mm'), legend.position = 'none'), f6_bottom + theme(plot.margin = unit(c(0, 2, 2, 2), 'mm')), nrow = 2, align = 'v', rel_heights = c(1, 1.07), labels = c('a', 'b'), label_fontfamily = 'fgbook')
+```
+
+### Save all figures in proper size
+
+```{r}
+ggsave(file.path(fig_path, 'figure2.png'), f2_combined, height = 6, width = 3.25, dpi = 400, units = 'in')
+ggsave(file.path(fig_path, 'figure3.png'), f3_combined, height = 6, width = 3.25, dpi = 400, units = 'in')
+ggsave(file.path(fig_path, 'figure4.png'), f4_combined_horizontal, height = 4, width = 7, dpi = 400, units = 'in')
+ggsave(file.path(fig_path, 'figure5.png'), f5, height = 7, width = 3.25, dpi = 400, units = 'in')
+ggsave(file.path(fig_path, 'figure6.png'), f6_combined, height = 6, width = 3.25, dpi = 400, units = 'in')
 ```
 
