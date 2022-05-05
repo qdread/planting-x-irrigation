@@ -612,7 +612,8 @@ f7_bottom <- ggplot(cld_yld_pooled, aes(x = PD, y = emmean, ymin = lower.CL, yma
 
 f7_combined <- plot_grid(f7_top + no_x + theme(plot.margin = unit(c(2, 2, 2, 0), 'mm'), legend.position = c(0.8, 0.2), legend.text = element_text(size = 7)), 
                          f7_bottom + theme(plot.margin = unit(c(0, 2, 2, 2), 'mm'), legend.position = 'none'), 
-                         nrow = 2, align = 'v', rel_heights = c(1, 1.1), labels = c('a', 'b'), label_fontfamily = 'fgbook')
+                         nrow = 2, align = 'v', rel_heights = c(1, 1.1), labels = c('a', 'b'), label_fontfamily = 'fgbook',
+                         label_x = 0.26, label_y = 0.99)
 
 ggsave(file.path(fig_path, 'figure7.png'), f7_combined, height = 6, width = 3.25, dpi = 400, units = 'in')
 ```
