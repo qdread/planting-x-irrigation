@@ -495,7 +495,7 @@ f2_bottom <- ggplot(cld1_yld_pd, aes(x = PD, y = emmean, ymin = lower.CL, ymax =
   scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)'), labels = scales::comma) +
   theme(legend.position = 'none')
 
-f2_combined <- plot_grid(f2_top + no_x + theme(plot.margin = unit(c(2, 2, 2, 0), 'mm')), f2_bottom + theme(plot.margin = unit(c(0, 2, 2, 2), 'mm')), nrow = 2, align = 'v', rel_heights = c(1, 1.1), labels = c('a', 'b'), label_fontfamily = 'fgbook', label_x = xlabelpos, label_y = ylabelpos)
+f2_combined <- plot_grid(f2_top + no_x + theme(plot.margin = unit(c(2, 2, 2, 0), 'mm')), f2_bottom + theme(plot.margin = unit(c(0, 2, 2, 2), 'mm')), nrow = 2, align = 'v', rel_heights = c(1, 1.1), labels = c('A', 'B'), label_fontfamily = 'fgbook', label_x = xlabelpos, label_y = ylabelpos)
 ```
 
 ### Figure 3
@@ -517,7 +517,7 @@ f3_bottom <- ggplot(cld1_yld_irr, aes(x = Irr, y = emmean, ymin = lower.CL, ymax
   scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)'), labels = scales::comma) +
   theme(legend.position = 'none', axis.title.x = element_blank())
 
-f3_combined <- plot_grid(f3_top + no_x + theme(plot.margin = unit(c(2, 2, 2, 0), 'mm')), f3_bottom + theme(plot.margin = unit(c(0, 2, 2, 2), 'mm')), nrow = 2, align = 'v', rel_heights = c(1, 1.07), labels = c('a', 'b'), label_fontfamily = 'fgbook', label_x = xlabelpos, label_y = ylabelpos)
+f3_combined <- plot_grid(f3_top + no_x + theme(plot.margin = unit(c(2, 2, 2, 0), 'mm')), f3_bottom + theme(plot.margin = unit(c(0, 2, 2, 2), 'mm')), nrow = 2, align = 'v', rel_heights = c(1, 1.07), labels = c('A', 'B'), label_fontfamily = 'fgbook', label_x = xlabelpos, label_y = ylabelpos)
 ```
 
 ### Figure 4
@@ -554,9 +554,9 @@ f4_bottom <- ggplot(cld1_yld_genotype, aes(x = Strains, y = emmean, ymin = lower
   colors_res + shape_mg +
   labs(x = 'Genotypes')
 
-f4_combined <- plot_grid(f4_top + theme(legend.position = c(0.28, 0.83)), f4_bottom + theme(legend.position = 'none'), nrow = 2, align = 'v', labels = c('a', 'b'), label_fontfamily = 'fgbook', label_x = xlabelpos, label_y = ylabelpos)
+f4_combined <- plot_grid(f4_top + theme(legend.position = c(0.28, 0.83)), f4_bottom + theme(legend.position = 'none'), nrow = 2, align = 'v', labels = c('A', 'B'), label_fontfamily = 'fgbook', label_x = xlabelpos, label_y = ylabelpos)
 
-f4_combined_horizontal <- plot_grid(f4_top + theme(legend.position = 'none'), f4_bottom + theme(legend.position = c(0.4, 0.87)), nrow = 1, align = 'h', labels = c('a', 'b'), label_fontfamily = 'fgbook', label_x = xlabelpos-.01, label_y = 0.99)
+f4_combined_horizontal <- plot_grid(f4_top + theme(legend.position = 'none'), f4_bottom + theme(legend.position = c(0.4, 0.87)), nrow = 1, align = 'h', labels = c('A', 'B'), label_fontfamily = 'fgbook', label_x = xlabelpos-.01, label_y = 0.99)
 ```
 
 ### Figure 5
@@ -570,7 +570,7 @@ f5 <- ggplot(cld1_yld_geno_bypd, aes(x = Strains, y = emmean)) +
   geom_errorbar(width = 0.15, size = 0.75, aes(color = resistance, ymin = lower.CL, ymax = upper.CL)) +
   geom_point(size = 2, aes(shape = MG)) + 
   geom_text(nudge_x = 0.15, hjust = 0, size = 2.8, aes(label = gsub(' ', '', .group))) +
-  geom_text(data = data.frame(Strains = -Inf, emmean = Inf, lab = letters[1:3], PD = factor(c('April','May','June'))), aes(label=lab), 
+  geom_text(data = data.frame(Strains = -Inf, emmean = Inf, lab = LETTERS[1:3], PD = factor(c('April','May','June'))), aes(label=lab), 
             family = 'fgbook', fontface = 'bold', hjust = -0.75, vjust = 1.2) +
   scale_y_continuous(name = parse(text = 'Yield~(kg~ha^-1)'), labels = scales::comma, limits = c(0, 4000)) +
   theme(legend.box = 'vertical', legend.position = c(0.5, 0.06), legend.direction = 'horizontal',
@@ -608,7 +608,7 @@ f6_bottom <- ggplot(cld2_yld_pdxresistance, aes(x = PD, y = emmean, ymin = lower
   theme(legend.position = c(0.75, 0.15), legend.title = element_blank(), legend.text = element_text(size = rel(0.5)), legend.background = element_blank()) +
   colors_res 
 
-f6_combined <- plot_grid(f6_top + no_x + theme(plot.margin = unit(c(2, 2, 2, 0), 'mm'), legend.position = 'none'), f6_bottom + theme(plot.margin = unit(c(0, 2, 2, 2), 'mm')), nrow = 2, align = 'v', rel_heights = c(1, 1.07), labels = c('a', 'b'), label_fontfamily = 'fgbook', label_x = xlabelpos+.02, label_y = ylabelpos)
+f6_combined <- plot_grid(f6_top + no_x + theme(plot.margin = unit(c(2, 2, 2, 0), 'mm'), legend.position = 'none'), f6_bottom + theme(plot.margin = unit(c(0, 2, 2, 2), 'mm')), nrow = 2, align = 'v', rel_heights = c(1, 1.07), labels = c('A', 'B'), label_fontfamily = 'fgbook', label_x = xlabelpos+.02, label_y = ylabelpos)
 ```
 
 ### Save all figures in proper size
